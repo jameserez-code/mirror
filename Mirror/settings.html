@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mirror Settings</title>
+<style>
+  :root {
+    --bg: #111113; --bg2: #18181c; --bg3: #222228;
+    --border: rgba(255,255,255,0.08);
+    --accent: #6366f1; --accent-light: #818cf8;
+    --text: #f1f5f9; --text2: #94a3b8; --text3: #475569;
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+    --radius: 10px; --radius-sm: 7px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-size: 14px; height: 100vh; display: flex; flex-direction: column;
+    -webkit-font-smoothing: antialiased; user-select: none;
+  }
+  .titlebar {
+    height: 44px;
+    display: flex; align-items: center; padding: 0 20px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .titlebar-title { font-size: 13px; font-weight: 600; color: var(--text2); }
+  .tab-bar { display: flex; border-bottom: 1px solid var(--border); padding: 0 20px; flex-shrink: 0; }
+  .tab {
+    padding: 12px 16px; font-size: 13px; color: var(--text3); cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all 0.15s; margin-bottom: -1px;
+  }
+  .tab.active { color: var(--accent-light); border-bottom-color: var(--accent); }
+  .tab:hover { color: var(--text2); }
+  .tab-content { flex: 1; overflow-y: auto; padding: 24px 20px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .form-group { margin-bottom: 20px; }
+  .form-label {
+    font-size: 12px; font-weight: 600; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; display: block;
+  }
+  .form-input {
+    width: 100%; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 9px 12px; color: var(--text);
+    font-size: 13px; outline: none; transition: border-color 0.15s; font-family: inherit;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-input[type="password"] { letter-spacing: 0.1em; }
+  .form-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .form-key-status { font-size: 11px; margin-top: 4px; }
+  .form-key-status.set { color: var(--green); }
+  .form-key-status.missing { color: var(--text3); }
+
+  .btn-save {
+    height: 36px; padding: 0 20px; background: var(--accent); border: none;
+    border-radius: var(--radius-sm); color: white; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .btn-save:hover { background: var(--accent-light); }
+
+  .permission-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 10px;
+  }
+  .permission-info h3 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .permission-info p { font-size: 11px; color: var(--text3); }
+  .permission-status { display: flex; align-items: center; gap: 8px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+  .status-dot.granted { background: var(--green); }
+  .status-dot.denied { background: var(--red); }
+  .btn-permission {
+    padding: 5px 12px; background: none; border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-permission:hover { border-color: var(--accent); color: var(--accent-light); }
+
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text3); margin-bottom: 12px;
+  }
+
+  .workflow-settings-item {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .workflow-settings-actions { display: flex; gap: 8px; }
+  .btn-sm {
+    padding: 4px 10px; background: none; border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text3); font-size: 11px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--red); color: var(--red); }
+
+  .activity-item {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .activity-name { font-size: 13px; font-weight: 500; }
+  .activity-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .activity-status { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+  .activity-status.success { background: rgba(34,197,94,0.15); color: var(--green); }
+  .activity-status.failure { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  select.form-input { cursor: pointer; }
+
+  .provider-toggle {
+    display: flex; gap: 0; margin-bottom: 16px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .provider-btn {
+    flex: 1; padding: 8px; text-align: center; font-size: 12px; font-weight: 600;
+    background: var(--bg2); color: var(--text3); cursor: pointer; border: none; transition: all 0.15s;
+  }
+  .provider-btn.active { background: var(--accent); color: white; }
+
+  .saved-toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px);
+    background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #86efac;
+    padding: 8px 20px; border-radius: 100px; font-size: 13px; transition: transform 0.3s ease; z-index: 100;
+  }
+  .saved-toast.visible { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <span class="titlebar-title">Settings</span>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" onclick="switchTab('api')">API Keys</div>
+  <div class="tab" onclick="switchTab('permissions')">Permissions</div>
+  <div class="tab" onclick="switchTab('workflows')">Workflows</div>
+  <div class="tab" onclick="switchTab('activity')">Activity</div>
+</div>
+
+<div class="tab-content">
+
+  <div class="tab-panel active" id="tab-api">
+    <div class="section-title">AI Provider</div>
+    <div class="provider-toggle">
+      <button class="provider-btn active" id="provider-openrouter" onclick="selectProvider('openrouter')">OpenRouter</button>
+      <button class="provider-btn" id="provider-anthropic" onclick="selectProvider('anthropic')">Anthropic</button>
+      <button class="provider-btn" id="provider-openai" onclick="selectProvider('openai')">OpenAI</button>
+    </div>
+
+    <div id="openrouter-fields">
+      <div class="form-group">
+        <label class="form-label">OpenRouter API Key</label>
+        <input class="form-input" type="password" id="openrouter-key" placeholder="sk-or-..." autocomplete="off" />
+        <div class="form-key-status missing" id="openrouter-status">Not configured</div>
+        <div class="form-hint">Get yours at openrouter.ai/keys — access 200+ models through one API</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model</label>
+        <select class="form-input" id="or-model-select">
+          <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
+          <option value="anthropic/claude-opus-4-20250514">Claude Opus 4</option>
+          <option value="openai/gpt-4o">GPT-4o</option>
+          <option value="openai/gpt-4.1">GPT-4.1</option>
+          <option value="openai/o3-mini">o3 Mini</option>
+          <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="deepseek/deepseek-chat">DeepSeek V3</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="anthropic-fields" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Anthropic API Key</label>
+        <input class="form-input" type="password" id="anthropic-key" placeholder="sk-ant-..." autocomplete="off" />
+        <div class="form-key-status missing" id="anthropic-status">Not configured</div>
+        <div class="form-hint">Get yours at console.anthropic.com</div>
+      </div>
+    </div>
+
+    <div id="openai-fields" style="display:none">
+      <div class="form-group">
+        <label class="form-label">OpenAI API Key</label>
+        <input class="form-input" type="password" id="openai-key" placeholder="sk-..." autocomplete="off" />
+        <div class="form-key-status missing" id="openai-status">Not configured</div>
+        <div class="form-hint">Get yours at platform.openai.com</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Your Name</label>
+      <input class="form-input" type="text" id="user-name" placeholder="Optional — personalizes Mirror's output" />
+    </div>
+    <button class="btn-save" onclick="saveSettings()">Save Settings</button>
+  </div>
+
+  <div class="tab-panel" id="tab-permissions">
+    <div class="section-title">Required Permissions</div>
+    <div class="permission-row">
+      <div class="permission-info">
+        <h3>Accessibility</h3>
+        <p>Required for capturing keyboard and mouse events during recording</p>
+      </div>
+      <div class="permission-status">
+        <div class="status-dot" id="accessibility-dot"></div>
+        <button class="btn-permission" onclick="bridge('permissions.openAccessibility')">Open Settings</button>
+      </div>
+    </div>
+    <div class="permission-row">
+      <div class="permission-info">
+        <h3>Screen Recording</h3>
+        <p>Required for capturing visual context during recording</p>
+      </div>
+      <div class="permission-status">
+        <div class="status-dot" id="screen-dot"></div>
+        <button class="btn-permission" onclick="bridge('permissions.openScreenRecording')">Open Settings</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-top:16px;line-height:1.6">
+      Mirror only captures events during an active recording session that you start manually.
+      Nothing is captured in the background. Recordings stay local on your Mac.
+    </p>
+  </div>
+
+  <div class="tab-panel" id="tab-workflows">
+    <div class="section-title">Deployed Automations</div>
+    <div id="settings-workflow-list">
+      <p style="color:var(--text3);font-size:13px">No automations deployed yet.</p>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-activity">
+    <div class="section-title">Recent Runs</div>
+    <div id="activity-list">
+      <p style="color:var(--text3);font-size:13px">No runs yet.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="saved-toast" id="saved-toast">Settings saved</div>
+
+<script>
+var currentProvider = 'openrouter';
+
+function bridge(type, payload) {
+  var msg = {type: type};
+  if (payload) { for (var k in payload) { msg[k] = payload[k]; } }
+  window.webkit.messageHandlers.mirrorBridge.postMessage(msg);
+}
+
+function switchTab(name) {
+  var tabs = ['api', 'permissions', 'workflows', 'activity'];
+  var tabEls = document.querySelectorAll('.tab');
+  for (var i = 0; i < tabEls.length; i++) {
+    tabEls[i].classList.toggle('active', tabs[i] === name);
+  }
+  var panels = document.querySelectorAll('.tab-panel');
+  for (var j = 0; j < panels.length; j++) {
+    panels[j].classList.toggle('active', panels[j].id === 'tab-' + name);
+  }
+  if (name === 'permissions') bridge('permissions.check');
+  if (name === 'workflows') bridge('workflow.list');
+  if (name === 'activity') bridge('activity.list');
+}
+
+function selectProvider(provider) {
+  currentProvider = provider;
+  document.getElementById('provider-openrouter').classList.toggle('active', provider === 'openrouter');
+  document.getElementById('provider-anthropic').classList.toggle('active', provider === 'anthropic');
+  document.getElementById('provider-openai').classList.toggle('active', provider === 'openai');
+  document.getElementById('openrouter-fields').style.display = provider === 'openrouter' ? 'block' : 'none';
+  document.getElementById('anthropic-fields').style.display = provider === 'anthropic' ? 'block' : 'none';
+  document.getElementById('openai-fields').style.display = provider === 'openai' ? 'block' : 'none';
+}
+
+function saveSettings() {
+  var apiKey = '';
+  if (currentProvider === 'openrouter') {
+    apiKey = document.getElementById('openrouter-key').value;
+  } else if (currentProvider === 'anthropic') {
+    apiKey = document.getElementById('anthropic-key').value;
+  } else {
+    apiKey = document.getElementById('openai-key').value;
+  }
+
+  if (apiKey) {
+    bridge('settings.saveAPIKey', {apiKey: apiKey, provider: currentProvider});
+  }
+
+  var model = document.getElementById('or-model-select') ? document.getElementById('or-model-select').value : '';
+
+  bridge('settings.save', {
+    settings: {
+      name: document.getElementById('user-name').value,
+      provider: currentProvider,
+      model: model
+    }
+  });
+
+  showSavedToast();
+}
+
+function showSavedToast() {
+  var toast = document.getElementById('saved-toast');
+  toast.classList.add('visible');
+  setTimeout(function() { toast.classList.remove('visible'); }, 2000);
+}
+
+function escapeHtml(text) {
+  var div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+window.mirror = {
+  loadSettings: function(settings) {
+    if (settings.provider) {
+      selectProvider(settings.provider);
+    }
+    if (settings.model) {
+      var sel = document.getElementById('or-model-select');
+      if (sel) sel.value = settings.model;
+    }
+    if (settings.name) {
+      document.getElementById('user-name').value = settings.name;
+    }
+    var orStatus = document.getElementById('openrouter-status');
+    if (orStatus && settings.openRouterKeySet) {
+      orStatus.textContent = '\u2713 Key configured';
+      orStatus.className = 'form-key-status set';
+    }
+    var antStatus = document.getElementById('anthropic-status');
+    if (antStatus && settings.anthropicKeySet) {
+      antStatus.textContent = '\u2713 Key configured';
+      antStatus.className = 'form-key-status set';
+    }
+    var oaiStatus = document.getElementById('openai-status');
+    if (oaiStatus && settings.openaiKeySet) {
+      oaiStatus.textContent = '\u2713 Key configured';
+      oaiStatus.className = 'form-key-status set';
+    }
+  },
+
+  updatePermissions: function(status) {
+    document.getElementById('accessibility-dot').className =
+      'status-dot ' + (status.accessibility ? 'granted' : 'denied');
+    document.getElementById('screen-dot').className =
+      'status-dot ' + (status.screenRecording ? 'granted' : 'denied');
+  },
+
+  setWorkflowList: function(workflows) {
+    var list = document.getElementById('settings-workflow-list');
+    if (!workflows || workflows.length === 0) {
+      list.innerHTML = '<p style="color:var(--text3);font-size:13px">No automations deployed yet.</p>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < workflows.length; i++) {
+      var w = workflows[i];
+      var schedule = (w.trigger && w.trigger.description) ? w.trigger.description : 'Manual';
+      html += '<div class="workflow-settings-item">' +
+        '<div><div style="font-size:13px;font-weight:500">' + escapeHtml(w.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--text3)">' + escapeHtml(schedule) + '</div></div>' +
+        '<div class="workflow-settings-actions">' +
+        (w.enabled
+          ? '<button class="btn-sm" onclick="bridge(\'workflow.disable\', {id:\'' + w.id + '\'})">Pause</button>'
+          : '<button class="btn-sm" onclick="bridge(\'workflow.enable\', {id:\'' + w.id + '\'})">Resume</button>') +
+        '<button class="btn-sm" onclick="bridge(\'workflow.delete\', {id:\'' + w.id + '\'})">Delete</button>' +
+        '</div></div>';
+    }
+    list.innerHTML = html;
+  },
+
+  setActivityList: function(entries) {
+    var list = document.getElementById('activity-list');
+    if (!entries || entries.length === 0) {
+      list.innerHTML = '<p style="color:var(--text3);font-size:13px">No runs yet.</p>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var date = new Date(e.timestamp * 1000);
+      var dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      var statusClass = e.success ? 'success' : 'failure';
+      var statusText = e.success ? 'Success' : 'Failed';
+      html += '<div class="activity-item">' +
+        '<div><div class="activity-name">' + escapeHtml(e.workflowName) + '</div>' +
+        '<div class="activity-meta">' + dateStr + ' \u00B7 ' + e.stepsCompleted + '/' + e.stepsTotal + ' steps</div></div>' +
+        '<div class="activity-status ' + statusClass + '">' + statusText + '</div></div>';
+    }
+    list.innerHTML = html;
+  }
+};
+
+bridge('settings.ready');
+</script>
+</body>
+</html>

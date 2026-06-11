@@ -1,0 +1,18 @@
+# SwiftPM build artifacts
+.build/
+
+# Recorded sessions (large binaries + potentially sensitive data)
+Sessions/
+*.mirrorpack
+
+# Runtime data (workflows, logs, run history)
+Data/
+Logs/
+
+# macOS
+.DS_Store
+
+# Xcode (if ever used)
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
