@@ -14,675 +14,510 @@
 }
 </script>
 <style>
-  :root {
-    --bg: #0d0d10; --bg2: #18181c; --bg3: #222228; --bg4: #2a2a30;
-    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.06);
-    --accent: #6366f1; --accent-light: #818cf8;
-    --text: #f1f5f9; --text2: #94a3b8; --text3: #475569;
-    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --blue: #3b82f6; --purple: #8b5cf6; --amber: #f59e0b;
-    --radius: 10px; --radius-sm: 7px; --radius-xs: 5px;
-    --toolbar-h: 48px; --sidebar-w: 260px; --inspector-w: 380px; --exec-h: 240px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
-    background: var(--bg); color: var(--text); font-size: 13px;
-    height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased;
-  }
-  #root { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+:root{--bg:#0d0d10;--bg2:#18181c;--bg3:#222228;--bg4:#2a2a30;--border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.06);--accent:#6366f1;--accent-light:#818cf8;--text:#f1f5f9;--text2:#94a3b8;--text3:#475569;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;--purple:#8b5cf6;--radius:10px;--radius-sm:7px;--toolbar-h:48px;--sidebar-w:260px;--inspector-w:380px;--exec-h:240px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;background:var(--bg);color:var(--text);font-size:13px;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+#root{width:100%;height:100vh;display:flex;flex-direction:column}
+.toolbar{height:var(--toolbar-h);display:flex;align-items:center;padding:0 16px;background:var(--bg2);border-bottom:1px solid var(--border);gap:8px;flex-shrink:0;z-index:10}
+.toolbar-logo{font-size:15px;font-weight:700;color:var(--accent-light);margin-right:12px;letter-spacing:-0.3px}
+.toolbar-name{font-size:13px;color:var(--text);font-weight:500;margin-right:auto;background:none;border:1px solid transparent;border-radius:4px;padding:2px 6px;outline:none;font-family:inherit;max-width:220px}
+.toolbar-name:focus{border-color:var(--accent);background:var(--bg3)}
+.toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.toolbar-btn{height:28px;padding:0 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;cursor:pointer;transition:all 0.12s;font-family:inherit;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.toolbar-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-light)}
+.toolbar-btn:disabled{opacity:0.35;cursor:default}
+.toolbar-btn.accent{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.toolbar-btn.accent:hover:not(:disabled){background:var(--accent-light)}
+.toolbar-btn.kb-shortcut{font-size:10px;color:var(--text3);margin-left:-2px;opacity:0.7}
+.workspace{flex:1;display:flex;overflow:hidden;position:relative}
+.sidebar{width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;z-index:5}
+.sidebar-search{padding:12px}
+.sidebar-search input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit}
+.sidebar-search input:focus{border-color:var(--accent)}
+.sidebar-cats{flex:1;overflow-y:auto;padding:0 8px 12px;scrollbar-width:thin;scrollbar-color:var(--bg4) transparent}
+.sidebar-cat{margin-bottom:16px}
+.sidebar-cat-header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);padding:4px 8px;margin-bottom:4px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.sidebar-cat-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sidebar-node{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:grab;transition:background 0.1s;font-size:12px;color:var(--text2)}
+.sidebar-node:hover{background:var(--bg3);color:var(--text)}
+.sidebar-node:active{cursor:grabbing}
+.sidebar-node-icon{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.canvas-wrap{flex:1;position:relative}
+.react-flow__node{font-family:inherit!important}
+.react-flow__attribution,.react-flow__panel{border:none!important}
+.react-flow__edge.selected .react-flow__edge-path{stroke:var(--accent-light)!important;stroke-width:3!important}
+.react-flow__edge:hover .react-flow__edge-path{stroke:var(--text2)!important}
+.inspector{width:var(--inspector-w);background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;z-index:5;overflow:hidden}
+.inspector.hidden{display:none}
+.inspector-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:12px;text-align:center;padding:40px;gap:12px}
+.inspector-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.inspector-tab{flex:1;padding:10px 0;text-align:center;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.12s;background:none;font-family:inherit;border-top:none;border-left:none;border-right:none}
+.inspector-tab.active{color:var(--accent-light);border-bottom-color:var(--accent)}
+.inspector-tab:hover{color:var(--text2)}
+.inspector-content{flex:1;overflow-y:auto;padding:16px}
+.inspector-section{margin-bottom:18px}
+.inspector-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:6px}
+.inspector-field{margin-bottom:10px}
+.inspector-field label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px}
+.inspector-field input,.inspector-field textarea,.inspector-field select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit}
+.inspector-field input:focus,.inspector-field textarea:focus{border-color:var(--accent)}
+.inspector-field textarea{resize:vertical;min-height:56px}
+.inspector-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;margin-right:4px}
+.bg-cloud{background:rgba(34,197,94,0.15);color:#4ade80}
+.bg-desktop{background:rgba(99,102,241,0.15);color:#a5b4fc}
+.bg-warn{background:rgba(234,179,8,0.15);color:#facc15}
+.bg-provider{background:rgba(148,163,184,0.1);color:var(--text2)}
+.exec-panel{height:var(--exec-h);background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;z-index:5;transition:height 0.2s}
+.exec-panel.collapsed{height:36px}
+.exec-header{height:36px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);gap:12px;flex-shrink:0;cursor:pointer;user-select:none}
+.exec-header:hover{background:var(--bg3)}
+.exec-header-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3)}
+.exec-runs{flex:1;overflow-y:auto;padding:8px 16px}
+.exec-row{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:11px;border-bottom:1px solid var(--border2);cursor:pointer}
+.exec-row:hover{background:var(--bg3);margin:0 -16px;padding-left:16px;padding-right:16px}
+.exec-row:last-child{border-bottom:none}
+.exec-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.exec-dot.ok{background:var(--green)}
+.exec-dot.fail{background:var(--red)}
+.exec-dot.run{background:var(--blue);animation:pulse 1.5s infinite}
+.exec-time{color:var(--text3);width:46px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.exec-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exec-dur{color:var(--text3);width:44px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
 
-  /* Toolbar */
-  .toolbar {
-    height: var(--toolbar-h); display: flex; align-items: center; padding: 0 16px;
-    background: var(--bg2); border-bottom: 1px solid var(--border); gap: 8px; flex-shrink: 0;
-    z-index: 10;
-  }
-  .toolbar-logo { font-size: 15px; font-weight: 700; color: var(--accent-light); margin-right: 12px; letter-spacing: -0.3px; }
-  .toolbar-name { font-size: 13px; color: var(--text); font-weight: 500; margin-right: auto; }
-  .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
-  .toolbar-btn {
-    height: 28px; padding: 0 12px; background: none; border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.12s; font-family: inherit;
-    display: flex; align-items: center; gap: 5px; white-space: nowrap;
-  }
-  .toolbar-btn:hover { border-color: var(--accent); color: var(--accent-light); }
-  .toolbar-btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  .toolbar-btn.accent:hover { background: var(--accent-light); }
-  .toolbar-btn.danger { border-color: rgba(239,68,68,0.3); color: var(--red); }
-  .status-badge {
-    font-size: 11px; padding: 2px 10px; border-radius: 100px; font-weight: 600;
-  }
-  .status-badge.active { background: rgba(34,197,94,0.15); color: var(--green); }
-  .status-badge.draft { background: rgba(148,163,184,0.15); color: var(--text3); }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes flowDash{to{stroke-dashoffset:-20}}
+@keyframes nodePulse{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,0.4)}50%{box-shadow:0 0 0 6px rgba(99,102,241,0)}}
+@keyframes nodeSuccess{0%{box-shadow:0 0 0 0 rgba(34,197,94,0.6)}50%{box-shadow:0 0 0 8px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+@keyframes nodeFail{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.6)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
-  /* Layout */
-  .workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
+/* Context Menu */
+.ctx-menu{position:fixed;z-index:1000;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:180px;box-shadow:0 8px 30px rgba(0,0,0,0.5);animation:slideUp 0.12s ease}
+.ctx-item{padding:7px 12px;font-size:12px;color:var(--text2);cursor:pointer;border-radius:5px;display:flex;align-items:center;gap:8px;transition:background 0.08s}
+.ctx-item:hover{background:var(--bg3);color:var(--text)}
+.ctx-item.danger{color:var(--red)}
+.ctx-item.danger:hover{background:rgba(239,68,68,0.1)}
+.ctx-sep{height:1px;background:var(--border);margin:4px 6px}
 
-  /* Left Sidebar */
-  .sidebar {
-    width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; flex-shrink: 0; z-index: 5;
-  }
-  .sidebar-search {
-    padding: 12px;
-  }
-  .sidebar-search input {
-    width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
-    padding: 7px 10px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
-  }
-  .sidebar-search input:focus { border-color: var(--accent); }
-  .sidebar-cats { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
-  .sidebar-cat {
-    margin-bottom: 16px;
-  }
-  .sidebar-cat-header {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--text3); padding: 4px 8px; margin-bottom: 4px;
-    display: flex; align-items: center; gap: 6px; cursor: pointer;
-  }
-  .sidebar-cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .sidebar-node {
-    display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px;
-    cursor: grab; transition: background 0.1s; font-size: 12px; color: var(--text2);
-  }
-  .sidebar-node:hover { background: var(--bg3); color: var(--text); }
-  .sidebar-node:active { cursor: grabbing; }
-  .sidebar-node-icon { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+/* Toasts */
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:1001;padding:8px 16px;border-radius:100px;font-size:12px;font-weight:500;animation:slideUp 0.2s ease}
+.toast-success{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:#86efac}
+.toast-error{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5}
+.toast-info{background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.4);color:#93c5fd}
 
-  /* Canvas */
-  .canvas-wrap { flex: 1; position: relative; }
-  .react-flow__node { font-family: inherit !important; }
-  .react-flow__attribution { display: none !important; }
+/* KB Panel */
+.kb-panel{position:fixed;top:60px;right:16px;z-index:999;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;min-width:280px;box-shadow:0 12px 40px rgba(0,0,0,0.5);animation:fadeIn 0.15s ease}
+.kb-panel h3{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px}
+.kb-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:11px}
+.kb-key{background:var(--bg3);padding:2px 6px;border-radius:3px;font-size:10px;font-family:monospace;color:var(--text2);border:1px solid var(--border)}
 
-  /* Inspector */
-  .inspector {
-    width: var(--inspector-w); background: var(--bg2); border-left: 1px solid var(--border);
-    display: flex; flex-direction: column; flex-shrink: 0; z-index: 5; overflow: hidden;
-  }
-  .inspector.hidden { display: none; }
-  .inspector-tabs {
-    display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
-  }
-  .inspector-tab {
-    flex: 1; padding: 10px 0; text-align: center; font-size: 11px; font-weight: 600;
-    color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent;
-    transition: all 0.12s; background: none; font-family: inherit; border-top: none; border-left: none; border-right: none;
-  }
-  .inspector-tab.active { color: var(--accent-light); border-bottom-color: var(--accent); }
-  .inspector-tab:hover { color: var(--text2); }
-  .inspector-content { flex: 1; overflow-y: auto; padding: 16px; }
-  .inspector-section { margin-bottom: 20px; }
-  .inspector-label {
-    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--text3); margin-bottom: 6px;
-  }
-  .inspector-field {
-    margin-bottom: 12px;
-  }
-  .inspector-field label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
-  .inspector-field input, .inspector-field textarea, .inspector-field select {
-    width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
-    padding: 7px 10px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
-  }
-  .inspector-field input:focus, .inspector-field textarea:focus { border-color: var(--accent); }
-  .inspector-field textarea { resize: vertical; min-height: 60px; }
-  .inspector-badge {
-    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600;
-  }
-  .badge-cloud { background: rgba(34,197,94,0.15); color: #4ade80; }
-  .badge-desktop { background: rgba(99,102,241,0.15); color: #a5b4fc; }
-  .inspector-evidence-item {
-    font-size: 11px; color: var(--text2); padding: 6px 0; border-bottom: 1px solid var(--border2);
-  }
-  .inspector-evidence-item:last-child { border-bottom: none; }
-  .inspector-no-selection {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; color: var(--text3); font-size: 12px; text-align: center; padding: 40px;
-  }
+/* Status badge in toolbar */
+.status-badge{font-size:11px;padding:2px 10px;border-radius:100px;font-weight:600}
+.status-badge.active{background:rgba(34,197,94,0.15);color:var(--green)}
+.status-badge.draft{background:rgba(148,163,184,0.15);color:var(--text3)}
+.status-badge.failed{background:rgba(239,68,68,0.15);color:var(--red)}
 
-  /* Execution Timeline */
-  .exec-panel {
-    height: var(--exec-h); background: var(--bg2); border-top: 1px solid var(--border);
-    display: flex; flex-direction: column; flex-shrink: 0; z-index: 5;
-  }
-  .exec-panel.collapsed { height: 36px; }
-  .exec-header {
-    height: 36px; display: flex; align-items: center; padding: 0 16px;
-    border-bottom: 1px solid var(--border); gap: 12px; flex-shrink: 0; cursor: pointer;
-  }
-  .exec-header-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
-  .exec-runs { flex: 1; overflow-y: auto; padding: 8px 16px; }
-  .exec-run-row {
-    display: flex; align-items: center; gap: 10px; padding: 6px 0;
-    font-size: 11px; border-bottom: 1px solid var(--border2);
-  }
-  .exec-run-row:last-child { border-bottom: none; }
-  .exec-run-status { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; flex-shrink: 0; }
-  .exec-run-status.success { background: rgba(34,197,94,0.15); color: var(--green); }
-  .exec-run-status.failed { background: rgba(239,68,68,0.15); color: var(--red); }
-  .exec-run-status.running { background: rgba(59,130,246,0.15); color: var(--blue); animation: pulse 1.5s infinite; }
-  .exec-run-time { color: var(--text3); width: 50px; flex-shrink: 0; }
-  .exec-run-name { flex: 1; }
-  .exec-run-dur { color: var(--text3); width: 50px; text-align: right; flex-shrink: 0; }
-
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-  @keyframes flowDash { to { stroke-dashoffset: -20; } }
-  @keyframes nodePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 50% { box-shadow: 0 0 0 6px rgba(99,102,241,0); } }
-
-  .react-flow__minimap { border-radius: 8px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
-  .react-flow__controls { border-radius: 8px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
-  .react-flow__controls-button { background: var(--bg2) !important; border-bottom: 1px solid var(--border) !important; fill: var(--text2) !important; }
-  .react-flow__controls-button:hover { background: var(--bg3) !important; }
+.react-flow__minimap{border-radius:8px!important;overflow:hidden!important;border:1px solid var(--border)!important}
+.react-flow__controls{border-radius:8px!important;overflow:hidden!important;border:1px solid var(--border)!important}
+.react-flow__controls-button{background:var(--bg2)!important;border-bottom:1px solid var(--border)!important;fill:var(--text2)!important;width:28px!important;height:28px!important}
+.react-flow__controls-button:hover{background:var(--bg3)!important}
 </style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="module">
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { createRoot } from 'react-dom/client';
-import ReactFlow, {
-  ReactFlowProvider, useNodesState, useEdgesState, addEdge, Controls, MiniMap, Background,
-  Handle, Position, useReactFlow, MarkerType, Panel, getConnectedEdges, getIncomers, getOutgoers,
-} from 'reactflow';
+import React,{useState,useCallback,useRef,useEffect,useMemo,useReducer}from'react';
+import{createRoot}from'react-dom/client';
+import ReactFlow,{ReactFlowProvider,useNodesState,useEdgesState,addEdge,Controls,MiniMap,Background,Handle,Position,useReactFlow,MarkerType,Panel,useKeyPress}from'reactflow';
 
-// ═══════════════════════════════════════════
-// Node Type Registry
-// ═══════════════════════════════════════════
-
-const NODE_TYPES = {
-  trigger: {
-    category: 'trigger', color: '#eab308', bg: 'rgba(234,179,8,0.08)', icon: '▶',
-    nodes: [
-      { type: 'schedule_trigger', label: 'Schedule', icon: '⏰', desc: 'Run on a cron schedule' },
-      { type: 'manual_trigger', label: 'Manual Trigger', icon: '👆', desc: 'Trigger manually' },
-      { type: 'file_watcher', label: 'File Watcher', icon: '📁', desc: 'Trigger on file changes' },
-      { type: 'email_received', label: 'Email Received', icon: '📧', desc: 'Trigger on new email' },
-    ]
-  },
-  dataSource: {
-    category: 'dataSource', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', icon: '⬇',
-    nodes: [
-      { type: 'gmail_search', label: 'Gmail Search', icon: 'G', desc: 'Search Gmail inbox' },
-      { type: 'gmail_fetch', label: 'Gmail Message', icon: 'M', desc: 'Fetch specific email' },
-      { type: 'spreadsheet_read', label: 'Sheets Read', icon: 'S', desc: 'Read spreadsheet data' },
-      { type: 'drive_fetch', label: 'Google Drive', icon: 'D', desc: 'Fetch Drive files' },
-      { type: 'slack_fetch', label: 'Slack Message', icon: '#', desc: 'Fetch Slack messages' },
-      { type: 'file_read', label: 'Local File', icon: '📄', desc: 'Read local file' },
-    ]
-  },
-  transformation: {
-    category: 'transformation', color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', icon: '⚡',
-    nodes: [
-      { type: 'extract_fields', label: 'Extract Fields', icon: '✂', desc: 'Extract structured data' },
-      { type: 'summarize', label: 'Summarize', icon: '📝', desc: 'AI text summarization' },
-      { type: 'classify', label: 'Classify', icon: '🏷', desc: 'Categorize content' },
-      { type: 'filter', label: 'Filter', icon: '🔍', desc: 'Filter by condition' },
-      { type: 'map_fields', label: 'Map Fields', icon: '↔', desc: 'Remap field names' },
-    ]
-  },
-  decision: {
-    category: 'decision', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', icon: '◇',
-    nodes: [
-      { type: 'condition', label: 'If Condition', icon: '?', desc: 'Branch on condition' },
-      { type: 'branch', label: 'Branch', icon: '⑂', desc: 'Multi-way branch' },
-      { type: 'approval_required', label: 'Approval', icon: '✓', desc: 'Require human approval' },
-    ]
-  },
-  action: {
-    category: 'action', color: '#22c55e', bg: 'rgba(34,197,94,0.08)', icon: '→',
-    nodes: [
-      { type: 'send_email', label: 'Send Email', icon: '✉', desc: 'Send via Gmail' },
-      { type: 'append_sheet_row', label: 'Append Sheet', icon: '📊', desc: 'Add row to sheet' },
-      { type: 'slack_post', label: 'Slack Post', icon: '#', desc: 'Post to Slack' },
-      { type: 'upload_file', label: 'Upload File', icon: '⬆', desc: 'Upload to Drive' },
-      { type: 'notify_user', label: 'Notify User', icon: '🔔', desc: 'Send notification' },
-    ]
-  },
-  desktop: {
-    category: 'desktop', color: '#6b7280', bg: 'rgba(107,114,128,0.08)', icon: '💻',
-    nodes: [
-      { type: 'open_application', label: 'Open App', icon: '📱', desc: 'Launch application' },
-      { type: 'click_ui_element', label: 'Click UI', icon: '🖱', desc: 'Click element' },
-      { type: 'type_text', label: 'Type Text', icon: '⌨', desc: 'Type keystrokes' },
-      { type: 'desktop_navigation', label: 'Navigate', icon: '🧭', desc: 'Navigate browser' },
-    ]
-  },
+// ══ Node Registry ══
+const NODE_TYPES={
+  trigger:{color:'#eab308',bg:'rgba(234,179,8,0.08)',nodes:[
+    {type:'schedule_trigger',label:'Schedule',icon:'⏰',desc:'Run on a cron schedule',params:[{key:'cron',label:'Cron',type:'cron',def:'0 9 * * *'}]},
+    {type:'manual_trigger',label:'Manual Trigger',icon:'👆',desc:'Trigger manually',params:[]},
+    {type:'webhook_trigger',label:'Webhook',icon:'🪝',desc:'HTTP webhook trigger',params:[{key:'path',label:'Path',type:'text',def:'/hook'}]},
+  ]},
+  dataSource:{color:'#3b82f6',bg:'rgba(59,130,246,0.08)',nodes:[
+    {type:'gmail_search',label:'Gmail Search',icon:'G',desc:'Search Gmail inbox',provider:'gmail',
+      params:[{key:'query',label:'Query',type:'text',def:'invoice newer_than:7d'},{key:'maxResults',label:'Max',type:'number',def:'10'}]},
+    {type:'gmail_fetch',label:'Gmail Message',icon:'M',desc:'Fetch specific email',provider:'gmail',params:[]},
+    {type:'spreadsheet_read',label:'Sheets Read',icon:'S',desc:'Read spreadsheet data',provider:'sheets',params:[{key:'spreadsheetId',label:'Sheet ID',type:'text',def:''},{key:'range',label:'Range',type:'text',def:'Sheet1!A:Z'}]},
+    {type:'drive_fetch',label:'Google Drive',icon:'D',desc:'Fetch Drive files',provider:'drive',params:[]},
+    {type:'slack_fetch',label:'Slack Messages',icon:'#',desc:'Fetch Slack history',provider:'slack',params:[{key:'channel',label:'Channel',type:'text',def:'#general'}]},
+    {type:'file_read',label:'Local File',icon:'📄',desc:'Read local file',params:[{key:'path',label:'Path',type:'text',def:'~/Documents/'}]},
+  ]},
+  transformation:{color:'#8b5cf6',bg:'rgba(139,92,246,0.08)',nodes:[
+    {type:'extract_fields',label:'Extract Fields',icon:'✂',desc:'Extract structured data',params:[{key:'pattern',label:'Pattern',type:'text',def:''}]},
+    {type:'summarize',label:'Summarize',icon:'📝',desc:'AI text summarization',params:[]},
+    {type:'classify',label:'Classify',icon:'🏷',desc:'Categorize content',params:[]},
+    {type:'filter',label:'Filter',icon:'🔍',desc:'Filter rows by condition',params:[{key:'condition',label:'Condition',type:'text',def:'{{amount}} > 0'}]},
+    {type:'map_fields',label:'Map Fields',icon:'↔',desc:'Rename/remap fields',params:[]},
+  ]},
+  decision:{color:'#f59e0b',bg:'rgba(245,158,11,0.08)',nodes:[
+    {type:'condition',label:'If Condition',icon:'?',desc:'Branch on expression',params:[{key:'expression',label:'Expression',type:'text',def:'{{status}} == "active"'}]},
+    {type:'branch',label:'Multi-Branch',icon:'⑂',desc:'Multi-way branch',params:[]},
+  ]},
+  action:{color:'#22c55e',bg:'rgba(34,197,94,0.08)',nodes:[
+    {type:'send_email',label:'Send Email',icon:'✉',desc:'Send via Gmail API',provider:'gmail',params:[{key:'to',label:'To',type:'text',def:''},{key:'subject',label:'Subject',type:'text',def:''}]},
+    {type:'append_sheet_row',label:'Append Row',icon:'📊',desc:'Append to Google Sheet',provider:'sheets',params:[{key:'spreadsheetId',label:'Sheet ID',type:'text',def:''},{key:'values',label:'Values',type:'text',def:'{{invoice}},{{amount}}'}]},
+    {type:'slack_post',label:'Slack Post',icon:'#',desc:'Post to Slack channel',provider:'slack',params:[{key:'channel',label:'Channel',type:'text',def:'#alerts'},{key:'text',label:'Message',type:'textarea',def:''}]},
+    {type:'upload_file',label:'Upload File',icon:'⬆',desc:'Upload to Drive',provider:'drive',params:[]},
+  ]},
+  desktop:{color:'#6b7280',bg:'rgba(107,114,128,0.08)',nodes:[
+    {type:'open_application',label:'Open App',icon:'📱',desc:'Launch application',params:[{key:'app',label:'App Name',type:'text',def:''}]},
+    {type:'type_text',label:'Type Text',icon:'⌨',desc:'Simulate typing',params:[{key:'text',label:'Text',type:'textarea',def:''}]},
+    {type:'click_ui_element',label:'Click Element',icon:'🖱',desc:'Click at coordinates',params:[]},
+  ]},
 };
 
-const CATEGORY_COLORS = {
-  trigger: '#eab308', dataSource: '#3b82f6', transformation: '#8b5cf6',
-  decision: '#f59e0b', action: '#22c55e', desktop: '#6b7280'
-};
+const CC=({trigger:'#eab308',dataSource:'#3b82f6',transformation:'#8b5cf6',decision:'#f59e0b',action:'#22c55e',desktop:'#6b7280'});
+const CB=({trigger:'rgba(234,179,8,0.08)',dataSource:'rgba(59,130,246,0.08)',transformation:'rgba(139,92,246,0.08)',decision:'rgba(245,158,11,0.08)',action:'rgba(34,197,94,0.08)',desktop:'rgba(107,114,128,0.08)'});
 
-const CATEGORY_BG = {
-  trigger: 'rgba(234,179,8,0.08)', dataSource: 'rgba(59,130,246,0.08)',
-  transformation: 'rgba(139,92,246,0.08)', decision: 'rgba(245,158,11,0.08)',
-  action: 'rgba(34,197,94,0.08)', desktop: 'rgba(107,114,128,0.08)'
-};
-
-// ═══════════════════════════════════════════
-// Custom Node Component
-// ═══════════════════════════════════════════
-
-function MirrorNode({ id, data, selected }) {
-  const cat = data.category || 'action';
-  const color = CATEGORY_COLORS[cat] || '#6b7280';
-  const bg = CATEGORY_BG[cat] || 'rgba(107,114,128,0.08)';
-  const conf = data.confidence ?? 0.5;
-  const exec = data.executionType || 'local';
-  const isDisabled = data.disabled;
-
-  return React.createElement('div', {
-    className: 'mirror-node',
-    style: {
-      background: '#18181c',
-      border: `1.5px solid ${selected ? color : 'rgba(255,255,255,0.08)'}`,
-      borderRadius: '12px',
-      minWidth: '240px',
-      maxWidth: '320px',
-      boxShadow: selected ? `0 0 0 2px ${color}40, 0 4px 20px rgba(0,0,0,0.4)` : '0 2px 10px rgba(0,0,0,0.3)',
-      opacity: isDisabled ? 0.5 : 1,
-      transition: 'all 0.15s ease',
-      fontFamily: 'inherit',
-    }
-  }, [
-    // Header
-    React.createElement('div', {
-      key: 'h',
-      style: {
-        padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)',
-        display: 'flex', alignItems: 'center', gap: '8px',
-        background: bg, borderRadius: '12px 12px 0 0',
-      }
-    }, [
-      React.createElement('span', { key: 'i', style: { fontSize: '14px' } }, data.icon || '⬡'),
-      React.createElement('span', { key: 'n', style: { fontSize: '12px', fontWeight: 600, color: '#f1f5f9', flex: 1 } }, data.label || id),
-      data.provider && React.createElement('span', {
-        key: 'p',
-        style: {
-          fontSize: '9px', padding: '1px 6px', borderRadius: '4px',
-          background: 'rgba(255,255,255,0.06)', color: '#94a3b8', fontWeight: 600,
-        }
-      }, data.provider),
-      React.createElement('div', {
-        key: 's',
-        style: {
-          width: '7px', height: '7px', borderRadius: '50%', background: color,
-          flexShrink: 0,
-        }
-      }),
-    ]),
-    // Body
-    data.description && React.createElement('div', {
-      key: 'b',
-      style: { padding: '10px 14px', fontSize: '11px', color: '#94a3b8', lineHeight: 1.5 }
-    }, data.description),
-    // Footer
-    React.createElement('div', {
-      key: 'f',
-      style: {
-        padding: '8px 14px', borderTop: '1px solid rgba(255,255,255,0.05)',
-        display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#475569',
-      }
-    }, [
-      React.createElement('span', { key: 'c', style: { color: conf > 0.7 ? '#22c55e' : conf > 0.5 ? '#eab308' : '#ef4444' } },
-        `${Math.round(conf * 100)}%`),
-      React.createElement('span', { key: 'e', style: { marginLeft: 'auto', padding: '1px 6px', borderRadius: '3px', background: exec === 'cloud' ? 'rgba(34,197,94,0.1)' : 'rgba(99,102,241,0.1)', color: exec === 'cloud' ? '#4ade80' : '#a5b4fc' } },
-        exec === 'cloud' ? '☁ Cloud' : exec === 'desktop' ? '💻 Desktop' : '🔧 Local'),
-    ]),
-    // Handles
-    React.createElement(Handle, { key: 'hi', type: 'target', position: Position.Left, style: { width: 8, height: 8, background: color, border: '2px solid #18181c', borderRadius: '50%' } }),
-    React.createElement(Handle, { key: 'ho', type: 'source', position: Position.Right, style: { width: 8, height: 8, background: color, border: '2px solid #18181c', borderRadius: '50%' } }),
-  ]);
+// ══ History for Undo/Redo ══
+function useHistory(maxSize=50){const[history,dispatch]=useReducer((s,a)=>{
+  switch(a.type){case'push':const next=s.stack.slice(0,s.idx+1);next.push(a.data);if(next.length>maxSize)next.shift();return{stack:next,idx:next.length-1}
+  case'undo':return s.idx>0?{...s,idx:s.idx-1}:s
+  case'redo':return s.idx<s.stack.length-1?{...s,idx:s.idx+1}:s
+  case'reset':return{stack:[],idx:-1}
+  default:return s}},{stack:[],idx:-1})
+const push=useCallback((data)=>dispatch({type:'push',data}),[dispatch])
+const undo=useCallback(()=>dispatch({type:'undo'}),[dispatch])
+const redo=useCallback(()=>dispatch({type:'redo'}),[dispatch])
+return{history,current:history.stack[history.idx]||null,canUndo:history.idx>0,canRedo:history.idx<history.stack.length-1,push,undo,redo}
 }
 
-const nodeTypes = { mirrorNode: MirrorNode };
+// ══ Custom Node ══
+function MirrorNode({id,data,selected}){
+  const cat=data.category||'action';const c=CC[cat]||'#6b7280';const bg=CB[cat]||'rgba(107,114,128,0.08)'
+  const conf=data.confidence??0.5;const exec=data.executionType||'local';const runState=data._runState
+  const anim=runState==='running'?'nodePulse 1.2s infinite':runState==='success'?'nodeSuccess 0.6s ease-out':runState==='failure'?'nodeFail 0.6s ease-out':null
+  const borderC=runState==='success'?'#22c55e':runState==='failure'?'#ef4444':runState==='running'?'#6366f1':selected?c:'rgba(255,255,255,0.08)'
+  const shadow=runState==='running'?`0 0 0 3px rgba(99,102,241,0.3)`:'0 2px 10px rgba(0,0,0,0.3)'
+  return React.createElement('div',{style:{background:'#18181c',border:`1.5px solid ${borderC}`,borderRadius:'12px',minWidth:240,maxWidth:320,boxShadow:shadow,opacity:data.disabled?0.45:1,transition:'all 0.15s ease',fontFamily:'inherit',animation:anim}}, [
+    React.createElement('div',{key:'h',style:{padding:'10px 14px',borderBottom:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',gap:8,background:bg,borderRadius:'12px 12px 0 0'}},[
+      React.createElement('span',{key:'i',style:{fontSize:14}},data.icon||'⬡'),
+      React.createElement('span',{key:'n',style:{fontSize:12,fontWeight:600,color:'#f1f5f9',flex:1}},data.label||id),
+      data.provider&&React.createElement('span',{key:'p',style:{fontSize:9,padding:'1px 6px',borderRadius:4,background:'rgba(255,255,255,0.06)',color:'#94a3b8',fontWeight:600}},data.provider),
+      React.createElement('div',{key:'s',style:{width:7,height:7,borderRadius:'50%',background:runState==='success'?'#22c55e':runState==='failure'?'#ef4444':runState==='running'?'#6366f1':c,flexShrink:0}}),
+    ]),
+    data.description&&React.createElement('div',{key:'b',style:{padding:'10px 14px',fontSize:11,color:'#94a3b8',lineHeight:1.5}},data.description),
+    React.createElement('div',{key:'f',style:{padding:'8px 14px',borderTop:'1px solid rgba(255,255,255,0.05)',display:'flex',alignItems:'center',gap:8,fontSize:10,color:'#475569'}},[
+      React.createElement('span',{key:'c',style:{color:conf>0.7?'#22c55e':conf>0.5?'#eab308':'#ef4444'}},Math.round(conf*100)+'%'),
+      React.createElement('span',{key:'e',style:{marginLeft:'auto',padding:'1px 6px',borderRadius:3,background:exec==='cloud'?'rgba(34,197,94,0.1)':'rgba(99,102,241,0.1)',color:exec==='cloud'?'#4ade80':'#a5b4fc'}},exec==='cloud'?'☁':'💻'),
+    ]),
+    React.createElement(Handle,{key:'hi',type:'target',position:Position.Left,style:{width:8,height:8,background:c,border:'2px solid #18181c',borderRadius:'50%',opacity:selected?1:0,transition:'opacity 0.15s'},isConnectable:true}),
+    React.createElement(Handle,{key:'ho',type:'source',position:Position.Right,style:{width:8,height:8,background:c,border:'2px solid #18181c',borderRadius:'50%',opacity:selected?1:0,transition:'opacity 0.15s'},isConnectable:true}),
+  ]);
+}
+const nodeTypes={mirrorNode:MirrorNode};
 
-// ═══════════════════════════════════════════
-// Sidebar Component
-// ═══════════════════════════════════════════
-
-function Sidebar({ search, setSearch }) {
-  const cats = Object.entries(NODE_TYPES);
-
-  const onDragStart = (e, node) => {
-    e.dataTransfer.setData('application/mirrornode', JSON.stringify(node));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  return React.createElement('div', { className: 'sidebar' }, [
-    React.createElement('div', { className: 'sidebar-search', key: 's' },
-      React.createElement('input', {
-        type: 'text', placeholder: 'Search nodes...', value: search,
-        onChange: e => setSearch(e.target.value),
-      })
-    ),
-    React.createElement('div', { className: 'sidebar-cats', key: 'c' },
-      cats.map(([catKey, cat]) => {
-        const filtered = search ? cat.nodes.filter(n => n.label.toLowerCase().includes(search.toLowerCase())) : cat.nodes;
-        if (filtered.length === 0) return null;
-        return React.createElement('div', { className: 'sidebar-cat', key: catKey }, [
-          React.createElement('div', { className: 'sidebar-cat-header', key: 'h' }, [
-            React.createElement('span', { className: 'sidebar-cat-dot', style: { background: cat.color } }),
-            catKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()),
+// ══ Sidebar ══
+function Sidebar({search,setSearch}){
+  const cats=Object.entries(NODE_TYPES)
+  const onDragStart=(e,node)=>{e.dataTransfer.setData('application/mirrornode',JSON.stringify(node));e.dataTransfer.effectAllowed='move'}
+  return React.createElement('div',{className:'sidebar'},[
+    React.createElement('div',{className:'sidebar-search',key:'s'},React.createElement('input',{type:'text',placeholder:'Search nodes...',value:search,onChange:e=>setSearch(e.target.value)})),
+    React.createElement('div',{className:'sidebar-cats',key:'c'},cats.map(([catKey,cat])=>{
+      const f=search?cat.nodes.filter(n=>n.label.toLowerCase().includes(search.toLowerCase())):cat.nodes
+      if(!f.length)return null
+      return React.createElement('div',{className:'sidebar-cat',key:catKey},[
+        React.createElement('div',{className:'sidebar-cat-header',key:'h'},[
+          React.createElement('span',{className:'sidebar-cat-dot',style:{background:cat.color}}),
+          catKey.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()),
+        ]),
+        ...f.map(node=>React.createElement('div',{className:'sidebar-node',key:node.type,draggable:true,onDragStart:e=>onDragStart(e,node)},[
+          React.createElement('span',{className:'sidebar-node-icon',style:{background:cat.bg,color:cat.color},key:'i'},node.icon),
+          React.createElement('div',{key:'t'},[
+            React.createElement('div',{},node.label),
+            React.createElement('div',{style:{fontSize:10,color:'#475569',marginTop:1}},node.desc),
           ]),
-          ...filtered.map(node =>
-            React.createElement('div', {
-              className: 'sidebar-node', key: node.type,
-              draggable: true,
-              onDragStart: e => onDragStart(e, node),
-            }, [
-              React.createElement('span', { className: 'sidebar-node-icon', style: { background: cat.bg, color: cat.color }, key: 'i' }, node.icon),
-              React.createElement('div', { key: 't' }, [
-                React.createElement('div', {}, node.label),
-                React.createElement('div', { style: { fontSize: '10px', color: '#475569', marginTop: '1px' } }, node.desc),
-              ]),
-            ])
-          )
-        ]);
-      })
-    ),
+        ]))
+      ])
+    }))
   ]);
 }
 
-// ═══════════════════════════════════════════
-// Inspector Component
-// ═══════════════════════════════════════════
+// ══ Inspector ══
+function Inspector({selectedNode,onUpdateNode}){
+  const[tab,setTab]=useState('summary')
+  if(!selectedNode)return React.createElement('div',{className:'inspector hidden'})
+  const data=selectedNode.data||{}
+  const cat=Object.values(NODE_TYPES).find(c=>c.nodes.some(n=>n.type===selectedNode.type?.replace('mirrorNode','')))
+  const nodeDef=cat?.nodes.find(n=>selectedNode.type?.includes?.(n.type)||data.label===n.label)
+  const TABS=['Summary','Configuration','Evidence','Data Flow','Execution']
 
-function Inspector({ selectedNode, onClose }) {
-  const [activeTab, setActiveTab] = useState('summary');
-
-  if (!selectedNode) {
-    return React.createElement('div', { className: 'inspector hidden' });
+  const updateField=(key,val)=>{
+    const newData={...data,[key]:val}
+    if(onUpdateNode)onUpdateNode(selectedNode.id,newData)
   }
 
-  const TABS = ['Summary', 'Configuration', 'Evidence', 'Data Flow', 'Execution'];
-  const data = selectedNode.data || {};
-
-  return React.createElement('div', { className: 'inspector' }, [
-    React.createElement('div', { className: 'inspector-tabs', key: 'tabs' },
-      TABS.map(tab =>
-        React.createElement('button', {
-          key: tab, className: `inspector-tab ${activeTab === tab.toLowerCase().replace(' ', '') ? 'active' : ''}`,
-          onClick: () => setActiveTab(tab.toLowerCase().replace(' ', '')),
-        }, tab)
-      )
-    ),
-    React.createElement('div', { className: 'inspector-content', key: 'content' },
-      activeTab === 'summary' && React.createElement('div', {}, [
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Node Info'),
-          React.createElement('div', { style: { fontSize: '14px', fontWeight: 600, marginBottom: '4px' } }, data.label || selectedNode.id),
-          React.createElement('div', { style: { fontSize: '11px', color: '#94a3b8', marginBottom: '8px' } }, data.description || 'No description'),
-        ]),
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Properties'),
-          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' } }, [
-            React.createElement('span', { className: `inspector-badge ${data.executionType === 'cloud' ? 'badge-cloud' : 'badge-desktop'}` },
-              data.executionType === 'cloud' ? '☁ Cloud' : '💻 ' + (data.executionType || 'Local')),
-            React.createElement('span', { className: 'inspector-badge', style: { background: 'rgba(148,163,184,0.1)', color: '#94a3b8' } },
-              (data.category || 'action').replace(/([A-Z])/g, ' $1')),
-            data.provider && React.createElement('span', { className: 'inspector-badge', style: { background: 'rgba(99,102,241,0.1)', color: '#a5b4fc' } },
-              data.provider),
+  return React.createElement('div',{className:'inspector'},[
+    React.createElement('div',{className:'inspector-tabs',key:'tabs'},TABS.map(t=>{
+      const tid=t.toLowerCase().replace(/ /g,'')
+      return React.createElement('button',{key:t,className:`inspector-tab ${tab===tid?'active':''}`,onClick:()=>setTab(tid)},t)
+    })),
+    React.createElement('div',{className:'inspector-content',key:'c'},
+      tab==='summary'&&React.createElement('div',{},[
+        React.createElement('div',{className:'inspector-section'},[
+          React.createElement('div',{className:'inspector-label'},'Node'),
+          React.createElement('div',{style:{fontSize:14,fontWeight:600,marginBottom:4}},data.label||selectedNode.id),
+          React.createElement('div',{style:{fontSize:11,color:'#94a3b8',marginBottom:8}},data.description||'No description'),
+          React.createElement('div',{style:{display:'flex',flexWrap:'wrap',gap:4}},[
+            React.createElement('span',{className:`inspector-badge ${data.executionType==='cloud'?'bg-cloud':'bg-desktop'}`},data.executionType==='cloud'?'☁ Cloud':'💻 Local'),
+            data.category&&React.createElement('span',{className:'inspector-badge bg-provider'},data.category.replace(/([A-Z])/g,' $1')),
+            data.provider&&React.createElement('span',{className:'inspector-badge bg-provider'},data.provider),
           ]),
         ]),
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Confidence'),
-          React.createElement('div', { style: { height: '4px', background: '#222228', borderRadius: '2px', overflow: 'hidden' } },
-            React.createElement('div', {
-              style: {
-                width: `${Math.round((data.confidence || 0.5) * 100)}%`,
-                height: '100%', borderRadius: '2px',
-                background: (data.confidence || 0.5) > 0.7 ? '#22c55e' : (data.confidence || 0.5) > 0.5 ? '#eab308' : '#ef4444',
-                transition: 'width 0.3s'
-              }
-            })
-          ),
-          React.createElement('div', { style: { fontSize: '11px', color: '#475569', marginTop: '4px' } },
-            `${Math.round((data.confidence || 0.5) * 100)}% — ${(data.confidence || 0.5) > 0.7 ? 'High confidence' : (data.confidence || 0.5) > 0.5 ? 'Medium confidence' : 'Low confidence'}`),
+        React.createElement('div',{className:'inspector-section'},[
+          React.createElement('div',{className:'inspector-label'},'Confidence'),
+          React.createElement('div',{style:{height:4,background:'#222228',borderRadius:2,overflow:'hidden',marginBottom:6}},
+            React.createElement('div',{style:{width:Math.round((data.confidence||0.5)*100)+'%',height:'100%',borderRadius:2,background:(data.confidence||0.5)>0.7?'#22c55e':(data.confidence||0.5)>0.5?'#eab308':'#ef4444',transition:'width 0.3s'}})),
+          React.createElement('div',{style:{fontSize:11,color:'#475569'}},Math.round((data.confidence||0.5)*100)+'%'),
+        ]),
+        React.createElement('div',{className:'inspector-section'},[
+          React.createElement('div',{className:'inspector-label'},'Actions'),
+          React.createElement('button',{className:'toolbar-btn',style:{width:'100%',justifyContent:'center',marginBottom:6},onClick:()=>updateField('disabled',!data.disabled)},data.disabled?'Enable Node':'Disable Node'),
+          React.createElement('button',{className:'toolbar-btn danger',style:{width:'100%',justifyContent:'center'},onClick:()=>{if(onUpdateNode)onUpdateNode(selectedNode.id,null)}},'Delete Node'),
         ]),
       ]),
-
-      activeTab === 'configuration' && React.createElement('div', {}, [
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Parameters'),
-          data.config?.parameters?.map((param, i) =>
-            React.createElement('div', { className: 'inspector-field', key: i }, [
-              React.createElement('label', {}, param.label || param.key),
-              param.type === 'select'
-                ? React.createElement('select', {},
-                    (param.options || []).map(o => React.createElement('option', { key: o.value, value: o.value }, o.label)))
-                : param.type === 'cron'
-                  ? React.createElement('input', { type: 'text', defaultValue: param.value || '', placeholder: param.placeholder })
-                  : React.createElement('input', { type: param.type === 'secret' ? 'password' : 'text', defaultValue: param.value || '', placeholder: param.placeholder })
-            ])
-          ) || React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No configurable parameters'),
+      tab==='configuration'&&React.createElement('div',{},[
+        React.createElement('div',{className:'inspector-label'},'Parameters'),
+        nodeDef&&nodeDef.params?nodeDef.params.map((p,i)=>React.createElement('div',{className:'inspector-field',key:i},[
+          React.createElement('label',{},p.label),
+          p.type==='textarea'?React.createElement('textarea',{defaultValue:data[p.key]||p.def,onChange:e=>updateField(p.key,e.target.value)})
+          :React.createElement('input',{type:p.type==='number'?'number':'text',defaultValue:data[p.key]||p.def,onChange:e=>updateField(p.key,e.target.value),placeholder:p.def}),
+        ])):React.createElement('div',{style:{color:'#475569',fontSize:11}},'No configurable parameters'),
+      ]),
+      tab==='evidence'&&React.createElement('div',{},[
+        React.createElement('div',{className:'inspector-label'},'AI Evidence'),
+        (data.metadata?.evidence||[{type:'aiInferred',description:'Generated from user recording',confidence:0.7}]).map((item,i)=>React.createElement('div',{key:i,style:{fontSize:11,color:'#94a3b8',padding:'6px 0',borderBottom:'1px solid var(--border2)'}},[
+          React.createElement('div',{style:{fontWeight:600,marginBottom:2}},item.type||item.description),
+          React.createElement('div',{style:{fontSize:11,color:'#475569'}},item.description||''),
+          React.createElement('div',{style:{fontSize:10,color:'#475569',marginTop:2}},Math.round((item.confidence||0.5)*100)+'% confidence'),
+        ])),
+      ]),
+      tab==='dataflow'&&React.createElement('div',{},[
+        React.createElement('div',{className:'inspector-section'},[
+          React.createElement('div',{className:'inspector-label'},'Inputs'),
+          (data.inputs||[]).length>0?data.inputs.map((p,i)=>React.createElement('div',{key:i,style:{fontSize:12,color:'#94a3b8',padding:'4px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},[
+            React.createElement('span',{style:{color:'#6366f1'}},p.label||p.name),p.entityType&&React.createElement('span',{style:{color:'#475569',marginLeft:8}},'('+p.entityType+')'),
+          ])):React.createElement('div',{style:{color:'#475569',fontSize:11}},'No inputs'),
+        ]),
+        React.createElement('div',{className:'inspector-section'},[
+          React.createElement('div',{className:'inspector-label'},'Outputs'),
+          (data.outputs||[]).length>0?data.outputs.map((p,i)=>React.createElement('div',{key:i,style:{fontSize:12,color:'#22c55e',padding:'4px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},[p.label||p.name,p.entityType&&React.createElement('span',{style:{color:'#475569',marginLeft:8}},'('+p.entityType+')'),
+          ])):React.createElement('div',{style:{color:'#475569',fontSize:11}},'No outputs'),
         ]),
       ]),
-
-      activeTab === 'evidence' && React.createElement('div', {}, [
-        React.createElement('div', { className: 'inspector-label' }, 'AI Evidence'),
-        (data.metadata?.evidence || []).map((item, i) =>
-          React.createElement('div', { className: 'inspector-evidence-item', key: i }, [
-            React.createElement('div', { style: { fontWeight: 600, marginBottom: '2px' } }, item.type || item.description),
-            React.createElement('div', { style: { fontSize: '11px', color: '#475569' } }, item.description || ''),
-            React.createElement('div', { style: { fontSize: '10px', color: '#475569', marginTop: '2px' } }, `${Math.round((item.confidence || 0.5) * 100)}% confidence`),
-          ])
-        ) || React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No evidence recorded'),
-      ]),
-
-      activeTab === 'dataflow' && React.createElement('div', {}, [
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Inputs'),
-          (data.inputs || []).length > 0
-            ? data.inputs.map((port, i) =>
-                React.createElement('div', { key: i, style: { fontSize: '12px', color: '#94a3b8', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' } }, [
-                  React.createElement('span', { style: { color: '#6366f1' } }, port.label || port.name),
-                  port.entityType && React.createElement('span', { style: { color: '#475569', marginLeft: '8px' } }, `(${port.entityType})`),
-                ]))
-            : React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No inputs'),
-        ]),
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Outputs'),
-          (data.outputs || []).length > 0
-            ? data.outputs.map((port, i) =>
-                React.createElement('div', { key: i, style: { fontSize: '12px', color: '#22c55e', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' } }, [
-                  port.label || port.name,
-                  port.entityType && React.createElement('span', { style: { color: '#475569', marginLeft: '8px' } }, `(${port.entityType})`),
-                ]))
-            : React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No outputs'),
-        ]),
-      ]),
-
-      activeTab === 'execution' && React.createElement('div', {}, [
-        React.createElement('div', { className: 'inspector-section' }, [
-          React.createElement('div', { className: 'inspector-label' }, 'Execution History'),
-          React.createElement('div', { style: { fontSize: '12px', color: '#94a3b8' } }, 'Last run: Never'),
-          React.createElement('div', { style: { fontSize: '12px', color: '#94a3b8' } }, 'Average duration: --'),
-          React.createElement('div', { style: { fontSize: '12px', color: '#22c55e' } }, 'Success rate: --'),
+      tab==='execution'&&React.createElement('div',{},[
+        React.createElement('div',{className:'inspector-section'},[
+          React.createElement('div',{className:'inspector-label'},'Execution Stats'),
+          React.createElement('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Last run: Never'),
+          React.createElement('div',{style:{fontSize:12,color:'#94a3b8',marginBottom:4}},'Avg duration: --'),
+          React.createElement('div',{style:{fontSize:12,color:'#22c55e'}},'Success rate: --'),
         ]),
       ])
     ),
   ]);
 }
 
-// ═══════════════════════════════════════════
-// Main Editor Component
-// ═══════════════════════════════════════════
+// ══ Auto-Layout (topological sort) ══
+function autoLayout(nodes,edges){
+  if(!nodes.length)return nodes
+  const adj={};const inDeg={}
+  nodes.forEach(n=>{adj[n.id]=[];inDeg[n.id]=0})
+  edges.forEach(e=>{adj[e.source]?.push(e.target);inDeg[e.target]=(inDeg[e.target]||0)+1})
+  const queue=nodes.filter(n=>inDeg[n.id]===0).map(n=>n.id)
+  const layers=[];let q=queue
+  while(q.length){layers.push(q);const nq=[];q.forEach(id=>adj[id].forEach(t=>{inDeg[t]--;if(inDeg[t]===0)nq.push(t)}));q=nq}
+  const placed=new Set(layers.flat())
+  nodes.filter(n=>!placed.has(n.id)).forEach(n=>{if(layers.length)layers[layers.length-1].push(n.id);else layers.push([n.id])})
+  const cx=300,cy=160,ox=80,oy=80
+  const pos={}
+  layers.forEach((layer,ci)=>{layer.forEach((nid,ri)=>{pos[nid]={x:ox+ci*cx,y:oy+ri*cy-(layer.length-1)*cy/2}})})
+  return nodes.map(n=>({...n,position:pos[n.id]||n.position}))
+}
 
-const INITIAL_NODES = [
-  {
-    id: 'trigger1', type: 'mirrorNode', position: { x: 100, y: 200 },
-    data: { label: 'Schedule', icon: '⏰', category: 'trigger', provider: 'system', confidence: 0.95, executionType: 'cloud', description: 'Runs every weekday at 9am' },
-  },
-  {
-    id: 'step1', type: 'mirrorNode', position: { x: 440, y: 100 },
-    data: { label: 'Gmail Search', icon: 'G', category: 'dataSource', provider: 'gmail', confidence: 0.92, executionType: 'cloud', description: 'Search for "invoice newer_than:7d"' },
-  },
-  {
-    id: 'step2', type: 'mirrorNode', position: { x: 780, y: 200 },
-    data: { label: 'Extract Fields', icon: '✂', category: 'transformation', provider: 'system', confidence: 0.85, executionType: 'cloud', description: 'Extract invoice number, amount, vendor' },
-  },
-  {
-    id: 'step3', type: 'mirrorNode', position: { x: 1120, y: 300 },
-    data: { label: 'Append Sheet', icon: '📊', category: 'action', provider: 'sheets', confidence: 0.88, executionType: 'cloud', description: 'Append to Accounts Payable tracker' },
-  },
-];
+// ══ Main Editor ══
+function Editor(){
+  const initNodes=[{id:'trigger1',type:'mirrorNode',position:{x:100,y:200},data:{label:'Schedule',icon:'⏰',category:'trigger',provider:'system',confidence:0.95,executionType:'cloud',description:'Runs every weekday at 9am'}},
+    {id:'step1',type:'mirrorNode',position:{x:440,y:100},data:{label:'Gmail Search',icon:'G',category:'dataSource',provider:'gmail',confidence:0.92,executionType:'cloud',description:'Search for invoices'}},
+    {id:'step2',type:'mirrorNode',position:{x:780,y:200},data:{label:'Extract Fields',icon:'✂',category:'transformation',provider:'system',confidence:0.85,executionType:'cloud',description:'Extract invoice number, amount, vendor'}},
+    {id:'step3',type:'mirrorNode',position:{x:1120,y:300},data:{label:'Append Row',icon:'📊',category:'action',provider:'sheets',confidence:0.88,executionType:'cloud',description:'Append to Accounts Payable'}}]
+  const initEdges=[{id:'e1-2',source:'trigger1',target:'step1',type:'smoothstep',style:{stroke:'#475569',strokeWidth:2}},
+    {id:'e2-3',source:'step1',target:'step2',type:'smoothstep',style:{stroke:'#3b82f6',strokeWidth:2},label:'email data',labelStyle:{fill:'#94a3b8',fontSize:10},labelBgStyle:{fill:'#18181c'}},
+    {id:'e3-4',source:'step2',target:'step3',type:'smoothstep',style:{stroke:'#8b5cf6',strokeWidth:2},label:'invoice fields',labelStyle:{fill:'#94a3b8',fontSize:10},labelBgStyle:{fill:'#18181c'}}]
 
-const INITIAL_EDGES = [
-  { id: 'e1-2', source: 'trigger1', target: 'step1', type: 'smoothstep', animated: false, style: { stroke: '#475569', strokeWidth: 2 } },
-  { id: 'e2-3', source: 'step1', target: 'step2', type: 'smoothstep', animated: false, style: { stroke: '#475569', strokeWidth: 2 } },
-  { id: 'e3-4', source: 'step2', target: 'step3', type: 'smoothstep', animated: false, style: { stroke: '#475569', strokeWidth: 2 } },
-];
+  const[nodes,setNodes,onNodesChange]=useNodesState(initNodes)
+  const[edges,setEdges,onEdgesChange]=useEdgesState(initEdges)
+  const[selNodeId,setSelNodeId]=useState(null)
+  const[selEdgeId,setSelEdgeId]=useState(null)
+  const[search,setSearch]=useState('')
+  const[execCollapsed,setExecCollapsed]=useState(true)
+  const[wfName,setWfName]=useState('Invoice Processing')
+  const[wfStatus,setWfStatus]=useState('draft')
+  const[toast,setToast]=useState(null)
+  const[showKB,setShowKB]=useState(false)
+  const[ctxMenu,setCtxMenu]=useState(null)
+  const[execRuns,setExecRuns]=useState([])
+  const reactFlowWrapper=useRef(null)
+  const{project,fitView}=useReactFlow()
+  const{current,canUndo,canRedo,push,undo,redo}=useHistory()
 
-function Editor() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [search, setSearch] = useState('');
-  const [execCollapsed, setExecCollapsed] = useState(true);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
-  const reactFlowWrapper = useRef(null);
-  const { project, fitView } = useReactFlow();
+  const selNode=useMemo(()=>nodes.find(n=>n.id===selNodeId),[nodes,selNodeId])
 
-  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
+  // Undo/redo
+  const saveState=useCallback(()=>push({nodes:JSON.parse(JSON.stringify(nodes)),edges:JSON.parse(JSON.stringify(edges))}),[nodes,edges,push])
+  const handleUndo=useCallback(()=>{const s=current;if(!s)return;setNodes(s.nodes);setEdges(s.edges)},[current,setNodes,setEdges])
+  useEffect(()=>{if(current){setNodes(current.nodes);setEdges(current.edges)}},[current]) // react to undo/redo
 
-  const onConnect = useCallback(params => {
-    setEdges(eds => addEdge({
-      ...params, type: 'smoothstep',
-      style: { stroke: '#475569', strokeWidth: 2 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#475569', width: 16, height: 16 },
-    }, eds));
-  }, [setEdges]);
+  const doUndo=()=>{undo();setTimeout(()=>handleUndo(),0)}
+  const doRedo=()=>{redo();setTimeout(()=>handleUndo(),0)}
 
-  const onNodeClick = useCallback((_, node) => {
-    setSelectedNodeId(node.id);
-  }, []);
+  // Save state before mutations
+  const mutateNodes=useCallback((fn)=>{saveState();setNodes(fn)},[saveState,setNodes])
+  const mutateEdges=useCallback((fn)=>{saveState();setEdges(fn)},[saveState,setEdges])
 
-  const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-  }, []);
+  const onConnect=useCallback(params=>{mutateEdges(eds=>addEdge({...params,type:'smoothstep',style:{stroke:'#475569',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#475569',width:16,height:16}},eds));setToast({msg:'Edge created',type:'success'});setTimeout(()=>setToast(null),1500)},[mutateEdges])
+  const onNodeClick=useCallback((_,node)=>{setSelNodeId(node.id);setSelEdgeId(null);setCtxMenu(null)},[])
+  const onEdgeClick=useCallback((_,edge)=>{setSelEdgeId(edge.id);setSelNodeId(null);setCtxMenu(null)},[])
+  const onPaneClick=useCallback(()=>{setSelNodeId(null);setSelEdgeId(null);setCtxMenu(null)},[])
+  const onDragOver=useCallback(e=>{e.preventDefault();e.dataTransfer.dropEffect='move'},[])
+  const onDrop=useCallback(e=>{e.preventDefault();const raw=e.dataTransfer.getData('application/mirrornode');if(!raw)return;const nd=JSON.parse(raw);const pos=project({x:e.clientX-320,y:e.clientY-120});const id='node_'+Date.now();const cat=Object.values(NODE_TYPES).find(c=>c.nodes.some(n=>n.type===nd.type));mutateNodes(nds=>[...nds,{id,type:'mirrorNode',position:pos,data:{label:nd.label,icon:nd.icon,category:cat?Object.keys(NODE_TYPES).find(k=>NODE_TYPES[k]===cat):'action',provider:nd.provider||null,confidence:0.7,executionType:nd.type.includes('desktop')||nd.type.includes('click')||nd.type.includes('type')?'desktop':'cloud',description:nd.desc,params:nd.params}}])},[project,mutateNodes])
 
-  const onDragOver = useCallback(e => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
+  const handleDelete=useCallback(()=>{
+    if(selNodeId){mutateNodes(nds=>nds.filter(n=>n.id!==selNodeId));mutateEdges(eds=>eds.filter(e=>e.source!==selNodeId&&e.target!==selNodeId));setSelNodeId(null);setToast({msg:'Node deleted',type:'info'});setTimeout(()=>setToast(null),1500)}
+    if(selEdgeId){mutateEdges(eds=>eds.filter(e=>e.id!==selEdgeId));setSelEdgeId(null);setToast({msg:'Edge deleted',type:'info'});setTimeout(()=>setToast(null),1500)}
+  },[selNodeId,selEdgeId,mutateNodes,mutateEdges])
+  const handleKeyDown=useCallback(e=>{if(e.key==='Delete'||e.key==='Backspace'){if(document.activeElement?.tagName==='INPUT'||document.activeElement?.tagName==='TEXTAREA')return;handleDelete()}
+    if(e.key==='?'&&!e.metaKey&&!e.ctrlKey){setShowKB(s=>!s)}
+    if((e.metaKey||e.ctrlKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();doUndo()}
+    if((e.metaKey||e.ctrlKey)&&e.key==='z'&&e.shiftKey){e.preventDefault();doRedo()}
+    if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();handleSave()}
+    if((e.metaKey||e.ctrlKey)&&e.key==='a'){e.preventDefault();setNodes(nds=>nds.map(n=>({...n,selected:true})));setSelNodeId(null)}
+    if(e.key==='Escape'){setSelNodeId(null);setSelEdgeId(null);setCtxMenu(null);setShowKB(false)}
+  },[handleDelete,doUndo,doRedo])
 
-  const onDrop = useCallback(e => {
-    e.preventDefault();
-    const raw = e.dataTransfer.getData('application/mirrornode');
-    if (!raw) return;
-    const nodeData = JSON.parse(raw);
-    const position = project({ x: e.clientX - 320, y: e.clientY - 120 });
-    const id = `node_${Date.now()}`;
-    const cat = Object.values(NODE_TYPES).find(c => c.nodes.some(n => n.type === nodeData.type));
-    setNodes(nds => [...nds, {
-      id, type: 'mirrorNode', position,
-      data: {
-        label: nodeData.label, icon: nodeData.icon, category: cat?.category || 'action',
-        provider: nodeData.type.includes('gmail') ? 'gmail' : nodeData.type.includes('sheet') ? 'sheets' : nodeData.type.includes('slack') ? 'slack' : null,
-        confidence: 0.7, executionType: nodeData.type.includes('desktop') || nodeData.type.includes('click') || nodeData.type.includes('type') ? 'desktop' : 'cloud',
-        description: nodeData.desc,
-      }
-    }]);
-  }, [project, setNodes]);
+  const onNodeContextMenu=useCallback((e,node)=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:'node',id:node.id})},[])
+  const onPaneContextMenu=useCallback(e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:'pane'})},[])
 
-  const handleDelete = useCallback(() => {
-    if (selectedNodeId) {
-      setNodes(nds => nds.filter(n => n.id !== selectedNodeId));
-      setEdges(eds => eds.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId));
-      setSelectedNodeId(null);
-    }
-  }, [selectedNodeId, setNodes, setEdges]);
+  const duplicateNode=()=>{if(!selNode||!ctxMenu)return;const orig=selNode;const id='node_'+Date.now();mutateNodes(nds=>[...nds,{...orig,id,position:{x:orig.position.x+40,y:orig.position.y+60},data:{...orig.data}}]);setCtxMenu(null)}
+  const disableNode=()=>{if(!selNode)return;mutateNodes(nds=>nds.map(n=>n.id===selNode.id?{...n,data:{...n.data,disabled:!n.data.disabled}}:n));setCtxMenu(null)}
+  const upgradeNode=()=>{if(!selNode||selNode.data.category!=='desktop')return;const cat=Object.values(NODE_TYPES).find(c=>c.color===CC.action);mutateNodes(nds=>nds.map(n=>n.id===selNode.id?{...n,data:{...n.data,category:'action',executionType:'cloud',confidence:Math.min((n.data.confidence||0.5)+0.1,1),icon:'⬆'}}:n));setToast({msg:'Upgraded to cloud step',type:'success'});setTimeout(()=>setToast(null),1500);setCtxMenu(null)}
 
-  const handleKeyDown = useCallback(e => {
-    if (e.key === 'Delete' || e.key === 'Backspace') { handleDelete(); }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z') { /* undo */ }
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); /* save */ }
-  }, [handleDelete]);
+  const updateNodeData=useCallback((id,newData)=>{if(newData===null){mutateNodes(nds=>nds.filter(n=>n.id!==id));mutateEdges(eds=>eds.filter(e=>e.source!==id&&e.target!==id));setSelNodeId(null);return}mutateNodes(nds=>nds.map(n=>n.id===id?{...n,data:{...n.data,...newData}}:n))},[mutateNodes,mutateEdges])
 
-  // Sync with Mirror backend
-  useEffect(() => {
-    if (window.webkit?.messageHandlers?.mirrorBridge) {
-      window.webkit.messageHandlers.mirrorBridge.postMessage({ type: 'editor.ready' });
-    }
-  }, []);
+  const handleSave=()=>{
+    const graph={nodes:nodes.map(n=>({id:n.id,type:n.type,label:n.data.label,category:n.data.category,position:n.position,confidence:n.data.confidence,executionType:n.data.executionType})),edges:edges.map(e=>({id:e.id,source:e.source,target:e.target,type:e.type}))}
+    if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.save',graph:JSON.stringify(graph)})
+    setToast({msg:'Workflow saved',type:'success'});setTimeout(()=>setToast(null),2000)
+  }
 
-  const runWorkflow = () => {
-    // Animate edges
-    setEdges(eds => eds.map(e => ({ ...e, animated: true, style: { ...e.style, stroke: '#22c55e' } })));
-    setTimeout(() => {
-      setEdges(eds => eds.map(e => ({ ...e, animated: false, style: { ...e.style, stroke: '#475569' } })));
-    }, 2000);
-  };
+  const handleDeploy=()=>{
+    setWfStatus('active')
+    if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.deploy',name:wfName})
+    setToast({msg:'Deployed! Workflow is now active',type:'success'});setTimeout(()=>setToast(null),3000)
+  }
 
-  return React.createElement('div', { style: { width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' } }, [
+  const handleRun=()=>{
+    setExecCollapsed(false)
+    const runId='run_'+Date.now()
+    const runRows=[];nodes.forEach((n,i)=>{
+      runRows.push({id:n.id+'_'+runId,nodeId:n.id,label:n.data.label,status:'waiting',time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),dur:0})
+    })
+    setExecRuns(runRows)
+    // Animate execution
+    let delay=0;nodes.forEach((n,i)=>{
+      setTimeout(()=>{
+        setExecRuns(rs=>rs.map(r=>r.nodeId===n.id?{...r,status:'running',time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}:r))
+        setNodes(nds=>nds.map(nd=>nd.id===n.id?{...nd,data:{...nd.data,_runState:'running'}}:nd))
+        setEdges(eds=>eds.map(ed=>ed.source===n.id?{...ed,animated:true,style:{...ed.style,stroke:'#22c55e'}}:ed))
+        setTimeout(()=>{
+          const ok=n.id!=='step3'
+          setExecRuns(rs=>rs.map(r=>r.nodeId===n.id?{...r,status:ok?'success':'failed',dur:Math.round(Math.random()*500+200)}:r))
+          setNodes(nds=>nds.map(nd=>nd.id===n.id?{...nd,data:{...nd.data,_runState:ok?'success':'failure'}}:nd))
+          if(!ok)setToast({msg:'Node '+n.data.label+' failed',type:'error'})
+          setTimeout(()=>{
+            setNodes(nds=>nds.map(nd=>nd.id===n.id?{...nd,data:{...nd.data,_runState:'idle'}}:nd))
+          },800)
+        },800+Math.random()*400)
+      },delay)
+      delay+=1200
+    })
+    setTimeout(()=>{setEdges(eds=>eds.map(e=>({...e,animated:false,style:{...e.style,stroke:'#475569'}})))},delay+500)
+  }
+
+  useEffect(()=>{window.addEventListener('keydown',handleKeyDown);return()=>window.removeEventListener('keydown',handleKeyDown)},[handleKeyDown])
+  useEffect(()=>{if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.ready'})},[])
+  useEffect(()=>{if(ctxMenu){const h=()=>setCtxMenu(null);window.addEventListener('click',h,{once:true});return()=>window.removeEventListener('click',h)}},[ctxMenu])
+
+  return React.createElement('div',{style:{width:'100%',height:'100vh',display:'flex',flexDirection:'column'},tabIndex:0,onKeyDown:handleKeyDown},[
     // Toolbar
-    React.createElement('div', { className: 'toolbar', key: 'toolbar' }, [
-      React.createElement('span', { className: 'toolbar-logo' }, 'Mirror'),
-      React.createElement('span', { className: 'toolbar-name' }, 'Invoice Processing · Draft'),
-      React.createElement('span', { className: 'status-badge draft' }, 'Draft'),
-      React.createElement('div', { className: 'toolbar-sep' }),
-      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Undo'),
-      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Redo'),
-      React.createElement('div', { className: 'toolbar-sep' }),
-      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Analyze'),
-      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Validate'),
-      React.createElement('button', { className: 'toolbar-btn accent', onClick: runWorkflow }, '▶ Run Once'),
-      React.createElement('button', { className: 'toolbar-btn accent', style: { background: '#22c55e', borderColor: '#22c55e' }, onClick: () => {} }, 'Deploy'),
+    React.createElement('div',{className:'toolbar',key:'tb'},[
+      React.createElement('span',{className:'toolbar-logo'},'Mirror'),
+      React.createElement('input',{className:'toolbar-name',value:wfName,onChange:e=>setWfName(e.target.value),spellCheck:false}),
+      React.createElement('span',{className:`status-badge ${wfStatus}`},wfStatus==='active'?'Active':'Draft'),
+      React.createElement('div',{className:'toolbar-sep'}),
+      React.createElement('button',{className:'toolbar-btn',onClick:doUndo,disabled:!canUndo,title:'Undo'},'↩',React.createElement('span',{className:'toolbar-btn kb-shortcut'},'⌘Z')),
+      React.createElement('button',{className:'toolbar-btn',onClick:doRedo,disabled:!canRedo,title:'Redo'},'↪',React.createElement('span',{className:'toolbar-btn kb-shortcut'},'⌘⇧Z')),
+      React.createElement('button',{className:'toolbar-btn',onClick:()=>mutateNodes(nds=>autoLayout(nds,edges)),title:'Auto-layout'},'⬡ Layout'),
+      React.createElement('div',{className:'toolbar-sep'}),
+      React.createElement('button',{className:'toolbar-btn',onClick:()=>{setToast({msg:'Validation: 0 errors, 0 warnings',type:'success'});setTimeout(()=>setToast(null),2000)}},'Validate'),
+      React.createElement('button',{className:'toolbar-btn accent',onClick:handleRun,title:'Run Once'},'▶ Run'),
+      React.createElement('button',{className:'toolbar-btn accent',onClick:handleSave,style:{background:'#22c55e',borderColor:'#22c55e'}},'💾 Save'),
+      React.createElement('button',{className:'toolbar-btn accent',onClick:handleDeploy,style:{background:wfStatus==='active'?'#6b7280':'#6366f1',borderColor:wfStatus==='active'?'#6b7280':'#6366f1'}},wfStatus==='active'?'Redeploy':'Deploy'),
     ]),
     // Workspace
-    React.createElement('div', { className: 'workspace', key: 'workspace' }, [
-      React.createElement(Sidebar, { key: 'sidebar', search, setSearch }),
-      React.createElement('div', { className: 'canvas-wrap', key: 'canvas', ref: reactFlowWrapper, tabIndex: 0, onKeyDown: handleKeyDown },
-        React.createElement(ReactFlow, {
-          nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick,
-          onDragOver, onDrop,
-          nodeTypes,
-          fitView: true,
-          defaultEdgeOptions: {
-            type: 'smoothstep',
-            style: { stroke: '#475569', strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#475569', width: 16, height: 16 },
-          },
-          style: { background: '#0d0d10' },
-          snapToGrid: true,
-          snapGrid: [20, 20],
-          minZoom: 0.1, maxZoom: 2,
-          deleteKeyCode: ['Backspace', 'Delete'],
-          multiSelectionKeyCode: 'Shift',
-          selectionOnDrag: true,
-          panOnDrag: [1, 2],
-          selectNodesOnDrag: false,
-        }, [
-          React.createElement(Background, { color: '#222228', gap: 20, size: 1, key: 'bg' }),
-          React.createElement(Controls, { key: 'controls' }),
-          React.createElement(MiniMap, { key: 'minimap', style: { background: '#18181c' }, maskColor: 'rgba(0,0,0,0.6)', nodeColor: n => CATEGORY_COLORS[n.data?.category] || '#6b7280', nodeStrokeWidth: 2, pannable: true, zoomable: true }),
+    React.createElement('div',{className:'workspace',key:'ws'},[
+      React.createElement(Sidebar,{key:'sb',search,setSearch}),
+      React.createElement('div',{className:'canvas-wrap',key:'cv',ref:reactFlowWrapper},
+        React.createElement(ReactFlow,{nodes,edges,onNodesChange,onEdgesChange,onConnect,onNodeClick,onEdgeClick,onPaneClick,onDragOver,onDrop,onNodeContextMenu,onPaneContextMenu,nodeTypes,fitView:true,defaultEdgeOptions:{type:'smoothstep',style:{stroke:'#475569',strokeWidth:2},markerEnd:{type:MarkerType.ArrowClosed,color:'#475569',width:16,height:16}},style:{background:'#0d0d10'},snapToGrid:true,snapGrid:[20,20],minZoom:0.1,maxZoom:2,deleteKeyCode:null,multiSelectionKeyCode:'Shift',selectionOnDrag:true,panOnDrag:[1,2],selectNodesOnDrag:false,edgesFocusable:true,edgesUpdatable:true},[
+          React.createElement(Background,{color:'#222228',gap:20,size:1,key:'bg'}),
+          React.createElement(Controls,{key:'ctrl'}),
+          React.createElement(MiniMap,{key:'mm',style:{background:'#18181c'},maskColor:'rgba(0,0,0,0.6)',nodeColor:n=>CC[n.data?.category]||'#6b7280',nodeStrokeWidth:2,pannable:true,zoomable:true}),
+          React.createElement(Panel,{position:'bottom-left',key:'help'},React.createElement('button',{className:'toolbar-btn',onClick:()=>setShowKB(!showKB),style:{background:'var(--bg2)'}},'? Shortcuts')),
         ])
       ),
-      React.createElement(Inspector, { key: 'inspector', selectedNode, onClose: () => setSelectedNodeId(null) }),
+      React.createElement(Inspector,{key:'insp',selectedNode:selNode,onUpdateNode:updateNodeData}),
     ]),
-    // Execution Timeline
-    React.createElement('div', { className: `exec-panel ${execCollapsed ? 'collapsed' : ''}`, key: 'exec' }, [
-      React.createElement('div', { className: 'exec-header', onClick: () => setExecCollapsed(!execCollapsed) }, [
-        React.createElement('span', { className: 'exec-header-title' }, execCollapsed ? '▶ Execution Timeline' : '▼ Execution Timeline'),
-        React.createElement('span', { style: { fontSize: '10px', color: 'var(--text3)', marginLeft: 'auto' } }, execCollapsed ? '' : 'No runs yet'),
-      ]),
-      !execCollapsed && React.createElement('div', { className: 'exec-runs' }, [
-        React.createElement('div', { style: { color: 'var(--text3)', fontSize: '12px', textAlign: 'center', padding: '40px' } }, 'Run a workflow to see execution history'),
-      ]),
+    // Context menu
+    ctxMenu&&React.createElement('div',{className:'ctx-menu',style:{left:ctxMenu.x,top:ctxMenu.y},key:'ctx'},ctxMenu.type==='node'?[
+      React.createElement('div',{className:'ctx-item',onClick:duplicateNode,key:'dup'},'📋 Duplicate'),
+      React.createElement('div',{className:'ctx-item',onClick:disableNode,key:'dis'},selNode?.data?.disabled?'✅ Enable':'⏸ Disable'),
+      selNode?.data?.category==='desktop'&&React.createElement('div',{className:'ctx-item',onClick:upgradeNode,key:'up'},'☁ Upgrade to API'),
+      React.createElement('div',{className:'ctx-sep',key:'s1'}),
+      React.createElement('div',{className:'ctx-item danger',onClick:handleDelete,key:'del'},'🗑 Delete'),
+    ]:[
+      React.createElement('div',{className:'ctx-item',onClick:()=>{setCtxMenu(null);fitView()},key:'fv'},'🔍 Fit view'),
+      React.createElement('div',{className:'ctx-item',onClick:()=>{setCtxMenu(null);handleSave()},key:'sv'},'💾 Save'),
     ]),
+    // Execution panel
+    React.createElement('div',{className:`exec-panel ${execCollapsed?'collapsed':''}`,key:'exec'},[
+      React.createElement('div',{className:'exec-header',onClick:()=>setExecCollapsed(!execCollapsed)},[
+        React.createElement('span',{className:'exec-header-title'},execCollapsed?'▶ Execution Timeline (0 runs)':'▼ Execution Timeline ('+execRuns.length+' nodes)'),
+      ]),
+      !execCollapsed&&React.createElement('div',{className:'exec-runs'},execRuns.length?execRuns.map(r=>React.createElement('div',{className:'exec-row',key:r.id,onClick:()=>{const n=nodes.find(nd=>nd.id===r.nodeId);if(n){setSelNodeId(n.id);fitView({nodes:[n],duration:500})}}},[
+        React.createElement('div',{className:`exec-dot ${r.status==='success'?'ok':r.status==='failed'?'fail':r.status==='running'?'run':''}`}),
+        React.createElement('span',{className:'exec-time'},r.time),
+        React.createElement('span',{className:'exec-name'},r.label),
+        React.createElement('span',{className:'exec-dur'},r.dur?r.dur+'ms':r.status==='running'?'...':'--'),
+        React.createElement('span',{style:{fontSize:10,color:r.status==='success'?'#22c55e':r.status==='failed'?'#ef4444':'#94a3b8'}},r.status==='success'?'✓':r.status==='failed'?'✗':r.status==='running'?'●':'○'),
+      ])):React.createElement('div',{style:{color:'var(--text3)',fontSize:12,textAlign:'center',padding:40}},'Run a workflow to see execution history')),
+    ]),
+    // KB panel
+    showKB&&React.createElement('div',{className:'kb-panel',key:'kb'},[
+      React.createElement('h3',{},'Keyboard Shortcuts'),
+      ...[['⌘Z','Undo'],['⌘⇧Z','Redo'],['⌘S','Save'],['⌘A','Select All'],['Del','Delete'],['?','Toggle this panel'],['Esc','Deselect'],['Space+Drag','Pan canvas'],['Scroll','Zoom']].map(([k,d])=>React.createElement('div',{className:'kb-row',key:k},[React.createElement('span',{className:'kb-key'},k),React.createElement('span',{},d)])),
+    ]),
+    // Toast
+    toast&&React.createElement('div',{className:`toast toast-${toast.type}`,key:'tst'},toast.msg),
   ]);
 }
 
-// ═══════════════════════════════════════════
-// Mount
-// ═══════════════════════════════════════════
-
-const root = createRoot(document.getElementById('root'));
-root.render(React.createElement(ReactFlowProvider, null, React.createElement(Editor)));
+const root=createRoot(document.getElementById('root'));
+root.render(React.createElement(ReactFlowProvider,null,React.createElement(Editor)));
 </script>
 </body>
 </html>
