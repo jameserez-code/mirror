@@ -150,6 +150,25 @@ class WorkflowEngine {
     }
 
     private var stepOutputs: [String: Any] = [:]
+    private let stepOutputsLock = NSLock()
+
+    private func stepOutputValue(_ key: String) -> Any? {
+        stepOutputsLock.lock()
+        defer { stepOutputsLock.unlock() }
+        return stepOutputs[key]
+    }
+
+    private func stepSetOutputValue(_ key: String, _ value: Any) {
+        stepOutputsLock.lock()
+        defer { stepOutputsLock.unlock() }
+        stepOutputs[key] = value
+    }
+
+    private func stepOutputsSnapshot() -> [String: Any] {
+        stepOutputsLock.lock()
+        defer { stepOutputsLock.unlock() }
+        return stepOutputs
+    }
 
     private func executeStep(_ step: AnalysisPipeline.Workflow.Step, workflowId: String, runId: String) async -> Bool {
         switch step.action {
@@ -187,13 +206,13 @@ class WorkflowEngine {
         case "type_text":
             if let text = step.data {
                 // Resolve inputFrom references: {{step1.output}}
-                let resolved = resolveVariables(text, outputs: stepOutputs)
+                let resolved = resolveVariables(text, outputs: stepOutputsSnapshot())
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(resolved, forType: .string)
                 try? await Task.sleep(nanoseconds: 100_000_000)
                 postKeyPress(keyCode: 9, flags: CGEventFlags.maskCommand)
                 try? await Task.sleep(nanoseconds: 200_000_000)
-                if let outputAs = step.outputAs { stepOutputs[outputAs] = resolved }
+                if let outputAs = step.outputAs { stepSetOutputValue(outputAs, resolved) }
                 return true
             }
             return false
@@ -206,10 +225,10 @@ class WorkflowEngine {
 
         case "copy_clipboard":
             if let text = step.data {
-                let resolved = resolveVariables(text, outputs: stepOutputs)
+                let resolved = resolveVariables(text, outputs: stepOutputsSnapshot())
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(resolved, forType: .string)
-                if let outputAs = step.outputAs { stepOutputs[outputAs] = resolved }
+                if let outputAs = step.outputAs { stepSetOutputValue(outputAs, resolved) }
             }
             return true
 
@@ -227,13 +246,6 @@ class WorkflowEngine {
                 return true
             }
             return false
-
-        case "scroll":
-            if let deltaStr = step.data, let delta = Int32(deltaStr) {
-                let scrollEvent = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0)
-                scrollEvent?.post(tap: .cghidEventTap)
-            }
-            return true
 
         case "wait":
             let seconds = step.duration ?? (Double(step.data ?? "2") ?? 2.0)
@@ -263,7 +275,7 @@ class WorkflowEngine {
             if let recipients = step.recipients {
                 let subject = step.data ?? ""
                 let body = step.template ?? ""
-                let resolvedBody = resolveVariables(body, outputs: stepOutputs)
+                let resolvedBody = resolveVariables(body, outputs: stepOutputsSnapshot())
                 let mailto = "mailto:\(recipients)?subject=\(percentEncode(subject))&body=\(percentEncode(resolvedBody))"
                 if let url = URL(string: mailto) {
                     NSWorkspace.shared.open(url)
@@ -272,16 +284,7 @@ class WorkflowEngine {
             return true
 
         case "run_script":
-            if let cmd = step.data {
-                let resolved = resolveVariables(cmd, outputs: stepOutputs)
-                let task = Process()
-                task.executableURL = URL(fileURLWithPath: "/bin/bash")
-                task.arguments = ["-c", resolved]
-                try? task.run()
-                task.waitUntilExit()
-                return task.terminationStatus == 0
-            }
-            return false
+            return executeRunScript(step)
 
         case "screenshot":
             let task = Process()
@@ -293,8 +296,63 @@ class WorkflowEngine {
             task.arguments = ["-x", screenshotPath]
             try? task.run()
             task.waitUntilExit()
-            if let outputAs = step.outputAs { stepOutputs[outputAs] = screenshotPath }
+            if let outputAs = step.outputAs { stepSetOutputValue(outputAs, screenshotPath) }
             return true
+
+        case "gmail_send":
+            let to = resolveVariables(step.to ?? "", outputs: stepOutputsSnapshot())
+            let subject = resolveVariables(step.subject ?? "", outputs: stepOutputsSnapshot())
+            let body = resolveVariables(step.body ?? "", outputs: stepOutputsSnapshot())
+            do {
+                try await GmailConnector().send(to: to, subject: subject, body: body)
+                return true
+            } catch {
+                print("[Mirror] gmail_send failed: \(error)")
+                return false
+            }
+
+        case "gmail_search":
+            let query = step.query ?? ""
+            do {
+                let messages = try await GmailConnector().search(query: query)
+                if let outputKey = step.outputAs {
+                    let encoded = try JSONEncoder().encode(messages)
+                    let json = String(data: encoded, encoding: .utf8) ?? "[]"
+                    stepSetOutputValue(outputKey, json)
+                }
+                return true
+            } catch {
+                print("[Mirror] gmail_search failed: \(error)")
+                return false
+            }
+
+        case "sheets_append":
+            let spreadsheetId = resolveVariables(step.spreadsheetId ?? "", outputs: stepOutputsSnapshot())
+            let range = step.range ?? "Sheet1!A:Z"
+            let values = (step.values ?? []).map { resolveVariables($0, outputs: stepOutputsSnapshot()) }
+            do {
+                try await SheetsConnector().appendRow(spreadsheetId: spreadsheetId, range: range, values: values)
+                return true
+            } catch {
+                print("[Mirror] sheets_append failed: \(error)")
+                return false
+            }
+
+        case "sheets_read":
+            let spreadsheetId = resolveVariables(step.spreadsheetId ?? "", outputs: stepOutputsSnapshot())
+            let range = step.range ?? "Sheet1!A:Z"
+            do {
+                let rows = try await SheetsConnector().readRange(spreadsheetId: spreadsheetId, range: range)
+                if let outputKey = step.outputAs {
+                    let encoded = try JSONEncoder().encode(rows)
+                    let json = String(data: encoded, encoding: .utf8) ?? "[]"
+                    stepSetOutputValue(outputKey, json)
+                }
+                return true
+            } catch {
+                print("[Mirror] sheets_read failed: \(error)")
+                return false
+            }
 
         default:
             return true
@@ -329,7 +387,7 @@ class WorkflowEngine {
 
     private func executeWebRequest(_ step: AnalysisPipeline.Workflow.Step) async -> Bool {
         guard let urlString = step.url ?? step.data,
-              let url = URL(string: resolveVariables(urlString, outputs: stepOutputs)) else {
+              let url = URL(string: resolveVariables(urlString, outputs: stepOutputsSnapshot())) else {
             return false
         }
 
@@ -340,12 +398,12 @@ class WorkflowEngine {
 
         if let headers = step.headers {
             for (key, value) in headers {
-                request.setValue(resolveVariables(value, outputs: stepOutputs), forHTTPHeaderField: key)
+                request.setValue(resolveVariables(value, outputs: stepOutputsSnapshot()), forHTTPHeaderField: key)
             }
         }
 
         if let body = step.body {
-            request.httpBody = resolveVariables(body, outputs: stepOutputs).data(using: .utf8)
+            request.httpBody = resolveVariables(body, outputs: stepOutputsSnapshot()).data(using: .utf8)
             if request.value(forHTTPHeaderField: "Content-Type") == nil {
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             }
@@ -357,9 +415,9 @@ class WorkflowEngine {
                 let success = (200..<300).contains(httpResp.statusCode)
                 if let outputAs = step.outputAs ?? step.output {
                     if let str = String(data: data, encoding: .utf8) {
-                        stepOutputs[outputAs] = str
+                        stepSetOutputValue(outputAs, str)
                     } else {
-                        stepOutputs[outputAs] = data
+                        stepSetOutputValue(outputAs, data)
                     }
                 }
                 return success
@@ -374,15 +432,15 @@ class WorkflowEngine {
 
     private func executeFileRead(_ step: AnalysisPipeline.Workflow.Step) -> Bool {
         guard let path = step.path ?? step.file else { return false }
-        let resolvedPath = resolveVariables(path, outputs: stepOutputs).replacingTildeWithHome
+        let resolvedPath = resolveVariables(path, outputs: stepOutputsSnapshot()).replacingTildeWithHome
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: resolvedPath)) else { return false }
 
-        if let outputAs = step.outputAs ?? step.output {
+            if let outputAs = step.outputAs ?? step.output {
             let encoding = step.encoding ?? "utf8"
             if encoding == "base64" {
-                stepOutputs[outputAs] = data.base64EncodedString()
+                stepSetOutputValue(outputAs, data.base64EncodedString())
             } else {
-                stepOutputs[outputAs] = String(data: data, encoding: .utf8) ?? ""
+                stepSetOutputValue(outputAs, String(data: data, encoding: .utf8) ?? "")
             }
         }
         return true
@@ -390,8 +448,8 @@ class WorkflowEngine {
 
     private func executeFileWrite(_ step: AnalysisPipeline.Workflow.Step) -> Bool {
         guard let path = step.path ?? step.file else { return false }
-        let resolvedPath = resolveVariables(path, outputs: stepOutputs).replacingTildeWithHome
-        let content = resolveVariables(step.data ?? step.template ?? "", outputs: stepOutputs)
+        let resolvedPath = resolveVariables(path, outputs: stepOutputsSnapshot()).replacingTildeWithHome
+        let content = resolveVariables(step.data ?? step.template ?? "", outputs: stepOutputsSnapshot())
 
         do {
             let dir = URL(fileURLWithPath: resolvedPath).deletingLastPathComponent()
@@ -407,7 +465,7 @@ class WorkflowEngine {
 
     private func executeExtractData(_ step: AnalysisPipeline.Workflow.Step) -> Bool {
         var source: String = ""
-        if let inputFrom = step.inputFrom, let output = stepOutputs[inputFrom] {
+        if let inputFrom = step.inputFrom, let output = stepOutputValue(inputFrom) {
             source = String(describing: output)
         } else {
             source = NSPasteboard.general.string(forType: .string) ?? ""
@@ -417,15 +475,17 @@ class WorkflowEngine {
             if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
                 let range = NSRange(source.startIndex..., in: source)
                 if let match = regex.firstMatch(in: source, options: [], range: range) {
-                    let extracted = String(source[Range(match.range, in: source)!])
-                    if let outputAs = step.outputAs ?? step.output {
-                        stepOutputs[outputAs] = extracted
+                    if let range = Range(match.range, in: source) {
+                        let extracted = String(source[range])
+                        if let outputAs = step.outputAs ?? step.output {
+                            stepSetOutputValue(outputAs, extracted)
+                        }
                     }
                 }
             }
         } else {
             if let outputAs = step.outputAs ?? step.output {
-                stepOutputs[outputAs] = source
+                stepSetOutputValue(outputAs, source)
             }
         }
         return true
@@ -435,34 +495,58 @@ class WorkflowEngine {
 
     private func executeTransform(_ step: AnalysisPipeline.Workflow.Step) -> Bool {
         var input: Any = ""
-        if let inputFrom = step.inputFrom, let output = stepOutputs[inputFrom] {
+        if let inputFrom = step.inputFrom, let output = stepOutputValue(inputFrom) {
             input = output
         }
 
         if let transformExpr = step.transform {
             if let outputAs = step.outputAs ?? step.output {
-                // Simple jq-like transforms: prefix, suffix, replace, length
                 let inputStr = String(describing: input)
-                if transformExpr.hasPrefix("length") {
-                    stepOutputs[outputAs] = inputStr.count
-                } else if transformExpr.hasPrefix("lowercase") {
-                    stepOutputs[outputAs] = inputStr.lowercased()
-                } else if transformExpr.hasPrefix("uppercase") {
-                    stepOutputs[outputAs] = inputStr.uppercased()
-                } else if transformExpr.hasPrefix("trim") {
-                    stepOutputs[outputAs] = inputStr.trimmingCharacters(in: .whitespacesAndNewlines)
-                } else if transformExpr.hasPrefix("prefix:") {
-                    let prefix = String(transformExpr.dropFirst(7))
-                    stepOutputs[outputAs] = prefix + inputStr
-                } else if transformExpr.hasPrefix("suffix:") {
-                    let suffix = String(transformExpr.dropFirst(7))
-                    stepOutputs[outputAs] = inputStr + suffix
-                } else {
-                    stepOutputs[outputAs] = inputStr
-                }
+                if transformExpr == "length" { stepSetOutputValue(outputAs, inputStr.count) }
+                else if transformExpr == "lowercase" { stepSetOutputValue(outputAs, inputStr.lowercased()) }
+                else if transformExpr == "uppercase" { stepSetOutputValue(outputAs, inputStr.uppercased()) }
+                else if transformExpr == "trim" { stepSetOutputValue(outputAs, inputStr.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                else if transformExpr.hasPrefix("prefix:") { stepSetOutputValue(outputAs, String(transformExpr.dropFirst(7)) + inputStr) }
+                else if transformExpr.hasPrefix("suffix:") { stepSetOutputValue(outputAs, inputStr + String(transformExpr.dropFirst(7))) }
+                else { stepSetOutputValue(outputAs, inputStr) }
             }
         }
         return true
+    }
+
+    // MARK: - Script Execution
+
+    private let allowedScriptCommands: Set<String> = [
+        "/usr/bin/curl", "/usr/bin/osascript", "/usr/bin/python3",
+        "/usr/bin/open", "/usr/bin/say", "/usr/bin/pbpaste", "/usr/bin/pbcopy",
+        "/usr/sbin/screencapture", "/usr/bin/shortcuts"
+    ]
+
+    private func isScriptCommandAllowed(_ cmd: String) -> Bool {
+        let trimmed = cmd.trimmingCharacters(in: .whitespaces)
+        let firstToken = trimmed.components(separatedBy: " ").first ?? ""
+        guard !firstToken.isEmpty else { return false }
+
+        if allowedScriptCommands.contains(firstToken) { return true }
+        if firstToken.hasPrefix("/usr/bin/") || firstToken.hasPrefix("/usr/sbin/") {
+            if FileManager.default.isExecutableFile(atPath: firstToken) { return true }
+        }
+        return false
+    }
+
+    private func executeRunScript(_ step: AnalysisPipeline.Workflow.Step) -> Bool {
+        guard let cmd = step.data else { return false }
+        let resolved = resolveVariables(cmd, outputs: stepOutputsSnapshot())
+        guard isScriptCommandAllowed(resolved) else {
+            print("[Mirror] Script blocked by allowlist: \(resolved.prefix(200))")
+            return false
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/bash")
+        task.arguments = ["-c", resolved]
+        try? task.run()
+        task.waitUntilExit()
+        return task.terminationStatus == 0
     }
 
     // MARK: - Condition
@@ -471,7 +555,7 @@ class WorkflowEngine {
         guard let condition = step.condition else { return true }
 
         // Resolve variable references in condition
-        let resolved = resolveVariables(condition, outputs: stepOutputs)
+        let resolved = resolveVariables(condition, outputs: stepOutputsSnapshot())
 
         // Simple conditions: "{{var}} == value", "{{var}} != value", "{{var}} contains value"
         if resolved.contains("==") {
@@ -558,11 +642,19 @@ class WorkflowEngine {
             let parts = cron.split(separator: " ")
             if parts.count == 5 {
                 var calendar: [String: Any] = [:]
-                if parts[0] != "*" { calendar["Minute"] = Int(parts[0]) }
-                if parts[1] != "*" { calendar["Hour"] = Int(parts[1]) }
-                if parts[2] != "*" { calendar["Day"] = Int(parts[2]) }
-                if parts[3] != "*" { calendar["Month"] = Int(parts[3]) }
-                if parts[4] != "*" { calendar["Weekday"] = Int(parts[4]) }
+                func parseCronField(_ s: String.SubSequence) -> Int? {
+                    let str = String(s)
+                    if str == "*" { return nil }
+                    if str.hasPrefix("*/"), let interval = Int(str.dropFirst(2)) {
+                        return interval
+                    }
+                    return Int(str)
+                }
+                if let v = parseCronField(parts[0]) { calendar["Minute"] = v }
+                if let v = parseCronField(parts[1]) { calendar["Hour"] = v }
+                if let v = parseCronField(parts[2]) { calendar["Day"] = v }
+                if let v = parseCronField(parts[3]) { calendar["Month"] = v }
+                if let v = parseCronField(parts[4]) { calendar["Weekday"] = v }
                 plist["StartCalendarInterval"] = calendar
             }
         }

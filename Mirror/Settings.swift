@@ -18,12 +18,12 @@ struct Settings {
 
     static var userName: String {
         get { defaults.string(forKey: Key.userName.rawValue) ?? "" }
-        set { defaults.set(newValue, forKey: Key.userName.rawValue); defaults.synchronize() }
+        set { defaults.set(newValue, forKey: Key.userName.rawValue) }
     }
 
     static var apiProvider: String {
         get { defaults.string(forKey: Key.apiProvider.rawValue) ?? "openrouter" }
-        set { defaults.set(newValue, forKey: Key.apiProvider.rawValue); defaults.synchronize() }
+        set { defaults.set(newValue, forKey: Key.apiProvider.rawValue) }
     }
 
     static var openRouterKeySet: Bool {
@@ -39,8 +39,8 @@ struct Settings {
     }
 
     static var openRouterModel: String {
-        get { defaults.string(forKey: Key.openRouterModel.rawValue) ?? "anthropic/claude-sonnet-4-20250514" }
-        set { defaults.set(newValue, forKey: Key.openRouterModel.rawValue); defaults.synchronize() }
+        get { defaults.string(forKey: Key.openRouterModel.rawValue) ?? "anthropic/claude-sonnet-4.6" }
+        set { defaults.set(newValue, forKey: Key.openRouterModel.rawValue) }
     }
 
     static var firebaseEnabled: Bool {
@@ -68,7 +68,6 @@ struct Settings {
         case "openrouter": defaults.set(true, forKey: Key.openRouterKey.rawValue)
         default: break
         }
-        defaults.synchronize()
     }
 
     static func clearAPIKey(provider: String) {
@@ -78,7 +77,6 @@ struct Settings {
         case "openrouter": defaults.set(false, forKey: Key.openRouterKey.rawValue)
         default: break
         }
-        defaults.synchronize()
     }
 
     static func loadHTML(_ name: String) -> String {

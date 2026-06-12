@@ -60,6 +60,19 @@ struct AnalysisPipeline {
 
             // Keyboard shortcut
             let shortcut: String?
+
+            // Gmail fields
+            let to: String?
+            let subject: String?
+            let query: String?
+
+            // Sheets fields
+            let spreadsheetId: String?
+            let range: String?
+            let values: [String]?
+
+            // Execution type: "cloud" or "local"
+            let executionType: String?
         }
     }
 
@@ -94,6 +107,54 @@ struct AnalysisPipeline {
         - Confidence reflects how automatable this workflow is without human intervention
         - Output ONLY valid JSON. No prose, no markdown, no code fences.
 
+        ## CLOUD ACTION DETECTION (Critical — check this FIRST for every step)
+
+        Before classifying any step as a local desktop action (click, type_text, paste, 
+        press_shortcut), check whether the target app/site is Gmail or Google Sheets.
+        If it is, use the corresponding CLOUD action instead. Cloud actions run via API
+        and work even when Mirror is not actively controlling the screen — they are 
+        far more reliable than desktop replay.
+
+        ### Gmail Detection
+        If the activity timeline shows the user in Gmail (gmail.com, or Mail.app with 
+        a Google account) composing and sending an email:
+        - Emit a single `gmail_send` step instead of multiple click/type steps
+        - Extract: to (recipient), subject, body
+        - If recipient/subject/body reference data from earlier steps, use {{variable}} syntax
+
+        If the user searches/filters their Gmail inbox:
+        - Emit a `gmail_search` step
+        - Extract: query (the search query in Gmail search syntax, e.g. "from:stripe subject:invoice")
+        - outputAs: variable name for matching messages the user can reference in later steps
+
+        ### Google Sheets Detection
+        If the activity timeline shows the user in a Google Sheet (docs.google.com/spreadsheets) 
+        typing data into cells, especially appending a new row:
+        - Emit a `sheets_append` step instead of click/type steps
+        - Extract: spreadsheetId (from the URL if visible in OCR/browser context), 
+          range (e.g. "Sheet1!A:Z"), and values as an array of strings
+        - If values reference earlier step outputs, use {{variable}} syntax for each cell
+
+        If the user reads/copies data FROM a Google Sheet:
+        - Emit a `sheets_read` step
+        - Extract: spreadsheetId, range
+        - outputAs: variable name for the cell data for use in later steps
+
+        ### executionType field (REQUIRED on EVERY step)
+        Every step must include an "executionType" field:
+        - "cloud" — for gmail_send, gmail_search, sheets_append, sheets_read, web_request
+        - "local" — for click, type_text, paste, press_shortcut, open_application, 
+          copy_clipboard, run_script, screenshot
+        This field is used by the UI to show which steps run via API (reliable, always works)
+        vs which require Mirror running on their Mac (desktop replay).
+
+        ### Confidence Impact
+        Workflows composed ENTIRELY of "cloud" steps should receive a confidence BONUS 
+        of +0.15 (capped at 1.0), because cloud/API execution is significantly more 
+        reliable than desktop replay. Workflows with a MIX of cloud and local steps 
+        get no bonus or penalty. Workflows that are ENTIRELY local steps should be 
+        penalized -0.1, as these are the least reliable pattern.
+
         Step actions (use these exactly):
         - open_url: Open a URL in default browser. Fields: url
         - open_application: Launch a desktop app. Fields: appName
@@ -112,6 +173,10 @@ struct AnalysisPipeline {
         - screenshot: Capture screenshot for verification
         - condition: Branch based on condition. Fields: condition, data
         - transform: Transform/resize data between steps. Fields: transform, inputFrom, outputAs
+        - gmail_send: Send email via Gmail API. Fields: to, subject, body, executionType="cloud"
+        - gmail_search: Search Gmail inbox. Fields: query, outputAs, executionType="cloud"
+        - sheets_append: Append row to Google Sheet. Fields: spreadsheetId, range, values, executionType="cloud"
+        - sheets_read: Read range from Google Sheet. Fields: spreadsheetId, range, outputAs, executionType="cloud"
 
         Trigger types:
         - "schedule": Runs on cron (e.g., "0 9 * * 1-5" for weekday 9am). Fields: cron
@@ -155,7 +220,14 @@ struct AnalysisPipeline {
               "extractPattern": "regex or CSS selector|null",
               "transform": "jq expression or template|null",
               "duration": seconds|null,
-              "shortcut": "cmd+s style shortcut|null"
+              "shortcut": "cmd+s style shortcut|null",
+              "to": "string or {{variable}}|null",
+              "subject": "string or {{variable}}|null",
+              "query": "Gmail search syntax|null",
+              "spreadsheetId": "string or {{variable}}|null",
+              "range": "e.g. Sheet1!A:Z|null",
+              "values": ["string or {{variable}}", "..."]|null,
+              "executionType": "cloud|local"
             }
           ],
           "confidence": 0.0-1.0,
@@ -167,16 +239,26 @@ struct AnalysisPipeline {
 
     // MARK: - User Prompt Builder
 
-    static func buildUserPrompt(timeline: String, metadata: [String: Any]) -> String {
+    static func buildUserPrompt(timeline: String, metadata: [String: Any], events: [EventTapManager.CapturedEvent]) -> String {
         let duration = (metadata["duration"] as? Double) ?? 0
         let eventCount = (metadata["eventCount"] as? Int) ?? 0
+
+        let semanticActions = SemanticActionExtractor.extract(from: events)
+        let intentPlan = WorkflowIntentExtractor.extract(from: semanticActions, events: events)
+        let graph = WorkflowGraphBuilder.buildFullGraph(from: semanticActions, artifacts: intentPlan.artifacts, intent: intentPlan.intent, events: events)
+        let entityGraph = EntityGraphBuilder.build(events: events, actions: semanticActions, artifacts: intentPlan.artifacts, graph: graph)
+
         return """
             Activity Log:
             Duration: \(String(format: "%.1f", duration))s | Events: \(eventCount)
 
+            \(EntityGraphBuilder.buildEntityGraphSummary(from: entityGraph))
+
+            \(WorkflowGraphBuilder.buildGraphSummary(from: graph))
+
             \(timeline)
 
-            Analyze this recording and output the workflow JSON. Focus on the repeatable pattern, use semantic actions, and add data flow between steps using inputFrom/outputAs.
+            Analyze this recording and output the workflow JSON. The Entity Graph above shows the data layer — what information exists, where it came from, and where it goes. The Workflow Graph shows the action layer. Use both to produce accurate, field-aware workflow steps with data flow annotations (inputFrom/outputAs). Focus on the repeatable pattern and output valid JSON.
             """
     }
 
@@ -197,7 +279,7 @@ struct AnalysisPipeline {
             timeline = SessionPackager.shared.buildActivityTimeline(events: events)
         }
 
-        let userPrompt = buildUserPrompt(timeline: timeline, metadata: metadata)
+        let userPrompt = buildUserPrompt(timeline: timeline, metadata: metadata, events: events)
 
         let provider = Settings.apiProvider
         switch provider {
@@ -238,7 +320,12 @@ struct AnalysisPipeline {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 300
+        let session = URLSession(configuration: config)
+
+        let task = session.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(.networkError(error.localizedDescription)))
                 return
@@ -290,7 +377,12 @@ struct AnalysisPipeline {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 300
+        let session = URLSession(configuration: config)
+
+        let task = session.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(.networkError(error.localizedDescription)))
                 return
@@ -345,7 +437,12 @@ struct AnalysisPipeline {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 300
+        let session = URLSession(configuration: config)
+
+        let task = session.dataTask(with: request) { data, response, error in
             if let error = error {
                 completion(.failure(.networkError(error.localizedDescription)))
                 return
@@ -373,6 +470,57 @@ struct AnalysisPipeline {
         return task
     }
 
+    // MARK: - Key Testing
+
+    static func testConnection(provider: String) async -> Bool {
+        switch provider {
+        case "openrouter":
+            guard let key = CredentialStore.shared.getAPIKey(provider: "openrouter") else { return false }
+            var request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/auth/key")!)
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            do {
+                let (_, response) = try await URLSession.shared.data(for: request)
+                return (response as? HTTPURLResponse)?.statusCode == 200
+            } catch { return false }
+        case "anthropic":
+            guard let key = CredentialStore.shared.getAPIKey(provider: "anthropic") else { return false }
+            var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+            request.httpMethod = "POST"
+            request.setValue(key, forHTTPHeaderField: "x-api-key")
+            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+            request.setValue("application/json", forHTTPHeaderField: "content-type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "model": "claude-haiku-4-5-20250514",
+                "max_tokens": 1,
+                "messages": [["role": "user", "content": "hi"]]
+            ])
+            do {
+                let (_, response) = try await URLSession.shared.data(for: request)
+                return (response as? HTTPURLResponse)?.statusCode == 200
+            } catch { return false }
+        case "openai":
+            guard let key = CredentialStore.shared.getAPIKey(provider: "openai") else { return false }
+            var request = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
+            request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+            do {
+                let (_, response) = try await URLSession.shared.data(for: request)
+                return (response as? HTTPURLResponse)?.statusCode == 200
+            } catch { return false }
+        default:
+            return false
+        }
+    }
+
+    // MARK: - Valid Actions
+
+    static let validActions: Set<String> = [
+        "open_url", "open_application", "type_text", "press_shortcut",
+        "click", "wait", "copy_clipboard", "paste_text", "extract_data",
+        "web_request", "send_email", "file_read", "file_write",
+        "run_script", "screenshot", "condition", "transform",
+        "gmail_send", "gmail_search", "sheets_append", "sheets_read"
+    ]
+
     // MARK: - Response Parser
 
     private static func parseWorkflowJSON(_ text: String, completion: @escaping (Result<Workflow, AnalysisError>) -> Void) {
@@ -391,6 +539,13 @@ struct AnalysisPipeline {
 
         do {
             let workflow = try JSONDecoder().decode(Workflow.self, from: jsonData)
+            // Validate all step actions are known
+            for step in workflow.steps {
+                guard validActions.contains(step.action) else {
+                    completion(.failure(.parseError("Unknown action '\(step.action)' in step \(step.id)")))
+                    return
+                }
+            }
             completion(.success(workflow))
         } catch {
             if var dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {

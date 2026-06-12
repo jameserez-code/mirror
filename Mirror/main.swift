@@ -17,6 +17,14 @@ if args.count >= 3 && args[1] == "--run-workflow" {
     }
 
     semaphore.wait()
+
+    // If completion never fired (engine hang), force exit after 5-minute safety timeout
+    if !success {
+        let fallback = DispatchSemaphore(value: 0)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 300) { fallback.signal() }
+        fallback.wait()
+    }
+
     exit(success ? 0 : 1)
 }
 

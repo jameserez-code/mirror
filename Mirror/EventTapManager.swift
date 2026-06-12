@@ -10,6 +10,10 @@ class EventTapManager {
     private var isRunning: Bool = false
     private var lastClipboardChangeCount: Int = 0
 
+    deinit {
+        _ = stopCapture()
+    }
+
     struct CapturedEvent: Codable {
         var timestamp: Double
         var type: String

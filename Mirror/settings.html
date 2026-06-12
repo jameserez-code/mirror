@@ -17,8 +17,9 @@
     background: var(--bg); color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
     font-size: 14px; height: 100vh; display: flex; flex-direction: column;
-    -webkit-font-smoothing: antialiased; user-select: none;
+    -webkit-font-smoothing: antialiased;
   }
+  input, textarea { user-select: text; -webkit-user-select: text; }
   .titlebar {
     height: 44px;
     display: flex; align-items: center; padding: 0 20px;
@@ -117,12 +118,70 @@
   }
   .provider-btn.active { background: var(--accent); color: white; }
 
+  .provider-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 16px; margin-bottom: 12px; transition: border-color 0.15s;
+  }
+  .provider-card.active-provider { border-color: var(--accent); }
+  .provider-card-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  .provider-card-name { font-size: 14px; font-weight: 600; }
+  .provider-card-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+  }
+  .provider-card-badge.active { background: rgba(99,102,241,0.15); color: var(--accent-light); }
+  .provider-card-badge.configured { background: rgba(34,197,94,0.15); color: var(--green); }
+  .provider-card-badge.inactive { background: rgba(148,163,184,0.15); color: var(--text3); }
+  .provider-card-body {
+    display: flex; align-items: flex-end; gap: 10px;
+  }
+  .provider-card-body .form-group { flex: 1; margin-bottom: 0; }
+  .provider-card-actions { display: flex; gap: 6px; padding-bottom: 6px; }
+  .btn-key-action {
+    height: 32px; padding: 0 12px; background: none; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text2); font-size: 12px;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .btn-key-action:hover { border-color: var(--accent); color: var(--accent-light); }
+  .btn-key-action.danger:hover { border-color: var(--red); color: var(--red); }
+  .btn-key-action.set-active {
+    background: var(--accent); border-color: var(--accent); color: white;
+  }
+  .btn-key-action.set-active:hover { background: var(--accent-light); }
+  .key-masked {
+    font-size: 12px; color: var(--text3); font-family: monospace; padding: 8px 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .key-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .key-dot.green { background: var(--green); }
+  .key-dot.muted { background: var(--text3); }
+
   .saved-toast {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px);
     background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #86efac;
     padding: 8px 20px; border-radius: 100px; font-size: 13px; transition: transform 0.3s ease; z-index: 100;
   }
   .saved-toast.visible { transform: translateX(-50%) translateY(0); }
+
+  .api-key-wrapper {
+    position: relative;
+  }
+  .api-key-wrapper .form-input {
+    padding-right: 110px;
+  }
+  .api-key-toggle {
+    position: absolute; right: 56px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text3); font-size: 11px;
+    cursor: pointer; padding: 2px 6px;
+  }
+  .api-key-toggle:hover { color: var(--text2); }
+  .api-key-paste {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: 1px solid var(--border); border-radius: 4px;
+    color: var(--accent-light); font-size: 11px; cursor: pointer; padding: 2px 8px;
+  }
+  .api-key-paste:hover { background: var(--accent); color: white; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -134,6 +193,7 @@
 <div class="tab-bar">
   <div class="tab active" onclick="switchTab('api')">API Keys</div>
   <div class="tab" onclick="switchTab('permissions')">Permissions</div>
+  <div class="tab" onclick="switchTab('integrations')">Integrations</div>
   <div class="tab" onclick="switchTab('workflows')">Workflows</div>
   <div class="tab" onclick="switchTab('activity')">Activity</div>
 </div>
@@ -141,24 +201,30 @@
 <div class="tab-content">
 
   <div class="tab-panel active" id="tab-api">
-    <div class="section-title">AI Provider</div>
-    <div class="provider-toggle">
-      <button class="provider-btn active" id="provider-openrouter" onclick="selectProvider('openrouter')">OpenRouter</button>
-      <button class="provider-btn" id="provider-anthropic" onclick="selectProvider('anthropic')">Anthropic</button>
-      <button class="provider-btn" id="provider-openai" onclick="selectProvider('openai')">OpenAI</button>
-    </div>
+    <div class="section-title">AI Providers</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.4">Select your AI provider and add an API key. Only the active provider is used for analysis.</p>
 
-    <div id="openrouter-fields">
-      <div class="form-group">
-        <label class="form-label">OpenRouter API Key</label>
-        <input class="form-input" type="password" id="openrouter-key" placeholder="sk-or-..." autocomplete="off" />
-        <div class="form-key-status missing" id="openrouter-status">Not configured</div>
-        <div class="form-hint">Get yours at openrouter.ai/keys — access 200+ models through one API</div>
+    <div class="provider-card" id="provider-card-openrouter">
+      <div class="provider-card-header">
+        <span class="provider-card-name">OpenRouter</span>
+        <span class="provider-card-badge inactive" id="or-badge">Not active</span>
       </div>
-      <div class="form-group">
+      <div class="provider-card-body">
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="form-input" type="text" id="openrouter-key" placeholder="sk-or-..." autocomplete="off" spellcheck="false" />
+          <div class="form-hint" style="margin-top:6px">openrouter.ai/keys — 200+ models via one API</div>
+        </div>
+        <div class="provider-card-actions">
+          <button class="btn-key-action set-active" id="or-set-active" onclick="setActiveProvider('openrouter')">Use This</button>
+          <button class="btn-key-action" onclick="testKey('openrouter')">Test</button>
+          <button class="btn-key-action danger" id="or-clear" onclick="clearKey('openrouter')" style="display:none">Clear</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px; margin-bottom:0">
         <label class="form-label">Model</label>
         <select class="form-input" id="or-model-select">
-          <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
+          <option value="anthropic/claude-sonnet-4.6">Claude Sonnet 4.6 (Recommended)</option>
           <option value="anthropic/claude-opus-4-20250514">Claude Opus 4</option>
           <option value="openai/gpt-4o">GPT-4o</option>
           <option value="openai/gpt-4.1">GPT-4.1</option>
@@ -169,21 +235,41 @@
       </div>
     </div>
 
-    <div id="anthropic-fields" style="display:none">
-      <div class="form-group">
-        <label class="form-label">Anthropic API Key</label>
-        <input class="form-input" type="password" id="anthropic-key" placeholder="sk-ant-..." autocomplete="off" />
-        <div class="form-key-status missing" id="anthropic-status">Not configured</div>
-        <div class="form-hint">Get yours at console.anthropic.com</div>
+    <div class="provider-card" id="provider-card-anthropic">
+      <div class="provider-card-header">
+        <span class="provider-card-name">Anthropic</span>
+        <span class="provider-card-badge inactive" id="ant-badge">Not active</span>
+      </div>
+      <div class="provider-card-body">
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="form-input" type="text" id="anthropic-key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+          <div class="form-hint" style="margin-top:6px">console.anthropic.com</div>
+        </div>
+        <div class="provider-card-actions">
+          <button class="btn-key-action" id="ant-set-active" onclick="setActiveProvider('anthropic')">Use This</button>
+          <button class="btn-key-action" onclick="testKey('anthropic')">Test</button>
+          <button class="btn-key-action danger" id="ant-clear" onclick="clearKey('anthropic')" style="display:none">Clear</button>
+        </div>
       </div>
     </div>
 
-    <div id="openai-fields" style="display:none">
-      <div class="form-group">
-        <label class="form-label">OpenAI API Key</label>
-        <input class="form-input" type="password" id="openai-key" placeholder="sk-..." autocomplete="off" />
-        <div class="form-key-status missing" id="openai-status">Not configured</div>
-        <div class="form-hint">Get yours at platform.openai.com</div>
+    <div class="provider-card" id="provider-card-openai">
+      <div class="provider-card-header">
+        <span class="provider-card-name">OpenAI</span>
+        <span class="provider-card-badge inactive" id="oai-badge">Not active</span>
+      </div>
+      <div class="provider-card-body">
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="form-input" type="text" id="openai-key" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+          <div class="form-hint" style="margin-top:6px">platform.openai.com</div>
+        </div>
+        <div class="provider-card-actions">
+          <button class="btn-key-action" id="oai-set-active" onclick="setActiveProvider('openai')">Use This</button>
+          <button class="btn-key-action" onclick="testKey('openai')">Test</button>
+          <button class="btn-key-action danger" id="oai-clear" onclick="clearKey('openai')" style="display:none">Clear</button>
+        </div>
       </div>
     </div>
 
@@ -191,7 +277,10 @@
       <label class="form-label">Your Name</label>
       <input class="form-input" type="text" id="user-name" placeholder="Optional — personalizes Mirror's output" />
     </div>
-    <button class="btn-save" onclick="saveSettings()">Save Settings</button>
+    <div style="display:flex;gap:12px;align-items:center">
+      <button class="btn-save" onclick="saveSettings()">Save Settings</button>
+      <span style="font-size:11px;color:var(--text3)">Keys are stored securely in macOS Keychain</span>
+    </div>
   </div>
 
   <div class="tab-panel" id="tab-permissions">
@@ -222,6 +311,27 @@
     </p>
   </div>
 
+  <div class="tab-panel" id="tab-integrations">
+    <div class="section-title">Connected Accounts</div>
+
+    <div class="permission-row">
+      <div class="permission-info">
+        <h3>Google (Gmail + Sheets)</h3>
+        <p>Enables cloud execution for email and spreadsheet steps</p>
+      </div>
+      <div class="permission-status">
+        <div class="status-dot" id="google-status-dot"></div>
+        <button class="btn-permission" id="google-connect-btn" onclick="connectGoogle()">Connect</button>
+      </div>
+    </div>
+
+    <p style="font-size:12px;color:var(--text3);margin-top:16px;line-height:1.6">
+      Connecting Google allows Mirror to send emails and update spreadsheets directly 
+      via API — these steps run reliably even if your Mac is asleep or Mirror 
+      isn't actively controlling your screen.
+    </p>
+  </div>
+
   <div class="tab-panel" id="tab-workflows">
     <div class="section-title">Deployed Automations</div>
     <div id="settings-workflow-list">
@@ -249,29 +359,60 @@ function bridge(type, payload) {
   window.webkit.messageHandlers.mirrorBridge.postMessage(msg);
 }
 
-function switchTab(name) {
-  var tabs = ['api', 'permissions', 'workflows', 'activity'];
-  var tabEls = document.querySelectorAll('.tab');
-  for (var i = 0; i < tabEls.length; i++) {
-    tabEls[i].classList.toggle('active', tabs[i] === name);
+function updateProviderCards(activeProvider, keyStatus) {
+  currentProvider = activeProvider;
+  var providers = ['openrouter', 'anthropic', 'openai'];
+  for (var i = 0; i < providers.length; i++) {
+    var p = providers[i];
+    var card = document.getElementById('provider-card-' + p);
+    var badge = document.getElementById(p.substring(0, 3) + '-badge');
+    var setActiveBtn = document.getElementById(p.substring(0, 3) + '-set-active');
+    var clearBtn = document.getElementById(p.substring(0, 3) + '-clear');
+
+    if (card) card.classList.toggle('active-provider', p === activeProvider);
+    if (badge) {
+      if (p === activeProvider) {
+        badge.textContent = 'Active';
+        badge.className = 'provider-card-badge active';
+      } else if (keyStatus[p]) {
+        badge.textContent = 'Configured';
+        badge.className = 'provider-card-badge configured';
+      } else {
+        badge.textContent = 'Not active';
+        badge.className = 'provider-card-badge inactive';
+      }
+    }
+    if (setActiveBtn) setActiveBtn.style.display = p === activeProvider ? 'none' : '';
+    if (clearBtn) clearBtn.style.display = keyStatus[p] ? '' : 'none';
   }
-  var panels = document.querySelectorAll('.tab-panel');
-  for (var j = 0; j < panels.length; j++) {
-    panels[j].classList.toggle('active', panels[j].id === 'tab-' + name);
-  }
-  if (name === 'permissions') bridge('permissions.check');
-  if (name === 'workflows') bridge('workflow.list');
-  if (name === 'activity') bridge('activity.list');
 }
 
-function selectProvider(provider) {
+function setActiveProvider(provider) {
   currentProvider = provider;
-  document.getElementById('provider-openrouter').classList.toggle('active', provider === 'openrouter');
-  document.getElementById('provider-anthropic').classList.toggle('active', provider === 'anthropic');
-  document.getElementById('provider-openai').classList.toggle('active', provider === 'openai');
-  document.getElementById('openrouter-fields').style.display = provider === 'openrouter' ? 'block' : 'none';
-  document.getElementById('anthropic-fields').style.display = provider === 'anthropic' ? 'block' : 'none';
-  document.getElementById('openai-fields').style.display = provider === 'openai' ? 'block' : 'none';
+  bridge('settings.save', { settings: { provider: provider } });
+  updateProviderCards(provider, {});
+  showSavedToast();
+}
+
+function testKey(provider) {
+  var fieldId = provider + '-key';
+  var key = document.getElementById(fieldId).value;
+  if (!key) {
+    showErrorToast('Enter an API key first');
+    return;
+  }
+  bridge('settings.saveAPIKey', { apiKey: key, provider: provider });
+  bridge('settings.testKey', { provider: provider });
+}
+
+function clearKey(provider) {
+  var fieldId = provider + '-key';
+  document.getElementById(fieldId).value = '';
+  bridge('settings.clearAPIKey', { provider: provider });
+  var keyStatus = {};
+  keyStatus[provider] = false;
+  updateProviderCards(currentProvider, keyStatus);
+  showToastMsg('Key removed');
 }
 
 function saveSettings() {
@@ -285,7 +426,7 @@ function saveSettings() {
   }
 
   if (apiKey) {
-    bridge('settings.saveAPIKey', {apiKey: apiKey, provider: currentProvider});
+    bridge('settings.saveAPIKey', { apiKey: apiKey, provider: currentProvider });
   }
 
   var model = document.getElementById('or-model-select') ? document.getElementById('or-model-select').value : '';
@@ -302,9 +443,53 @@ function saveSettings() {
 }
 
 function showSavedToast() {
+  showToastMsg('Settings saved');
+}
+
+function showToastMsg(msg) {
   var toast = document.getElementById('saved-toast');
+  toast.textContent = msg;
   toast.classList.add('visible');
   setTimeout(function() { toast.classList.remove('visible'); }, 2000);
+}
+
+function showErrorToast(msg) {
+  var toast = document.getElementById('saved-toast');
+  toast.textContent = msg;
+  toast.style.background = 'rgba(239,68,68,0.15)';
+  toast.style.borderColor = 'rgba(239,68,68,0.4)';
+  toast.style.color = '#fca5a5';
+  toast.classList.add('visible');
+  setTimeout(function() {
+    toast.classList.remove('visible');
+    toast.style.background = 'rgba(34,197,94,0.15)';
+    toast.style.borderColor = 'rgba(34,197,94,0.4)';
+    toast.style.color = '#86efac';
+  }, 3000);
+}
+
+function switchTab(name) {
+  var tabs = ['api', 'permissions', 'integrations', 'workflows', 'activity'];
+  var tabEls = document.querySelectorAll('.tab');
+  for (var i = 0; i < tabEls.length; i++) {
+    tabEls[i].classList.toggle('active', tabs[i] === name);
+  }
+  var panels = document.querySelectorAll('.tab-panel');
+  for (var j = 0; j < panels.length; j++) {
+    panels[j].classList.toggle('active', panels[j].id === 'tab-' + name);
+  }
+  if (name === 'permissions') bridge('permissions.check');
+  if (name === 'integrations') bridge('integrations.status');
+  if (name === 'workflows') bridge('workflow.list');
+  if (name === 'activity') bridge('activity.list');
+}
+
+function connectGoogle() {
+  bridge('integrations.connectGoogle');
+}
+
+function disconnectGoogle() {
+  bridge('integrations.disconnectGoogle');
 }
 
 function escapeHtml(text) {
@@ -313,32 +498,27 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function confirmDelete(workflowId, workflowName) {
+  if (confirm('Delete "' + workflowName + '"? This cannot be undone.')) {
+    bridge('workflow.delete', {id: workflowId});
+  }
+}
+
 window.mirror = {
   loadSettings: function(settings) {
-    if (settings.provider) {
-      selectProvider(settings.provider);
-    }
+    var keyStatus = {
+      openrouter: settings.openRouterKeySet,
+      anthropic: settings.anthropicKeySet,
+      openai: settings.openaiKeySet
+    };
+    updateProviderCards(settings.provider || 'openrouter', keyStatus);
+
     if (settings.model) {
       var sel = document.getElementById('or-model-select');
       if (sel) sel.value = settings.model;
     }
     if (settings.name) {
       document.getElementById('user-name').value = settings.name;
-    }
-    var orStatus = document.getElementById('openrouter-status');
-    if (orStatus && settings.openRouterKeySet) {
-      orStatus.textContent = '\u2713 Key configured';
-      orStatus.className = 'form-key-status set';
-    }
-    var antStatus = document.getElementById('anthropic-status');
-    if (antStatus && settings.anthropicKeySet) {
-      antStatus.textContent = '\u2713 Key configured';
-      antStatus.className = 'form-key-status set';
-    }
-    var oaiStatus = document.getElementById('openai-status');
-    if (oaiStatus && settings.openaiKeySet) {
-      oaiStatus.textContent = '\u2713 Key configured';
-      oaiStatus.className = 'form-key-status set';
     }
   },
 
@@ -366,7 +546,7 @@ window.mirror = {
         (w.enabled
           ? '<button class="btn-sm" onclick="bridge(\'workflow.disable\', {id:\'' + w.id + '\'})">Pause</button>'
           : '<button class="btn-sm" onclick="bridge(\'workflow.enable\', {id:\'' + w.id + '\'})">Resume</button>') +
-        '<button class="btn-sm" onclick="bridge(\'workflow.delete\', {id:\'' + w.id + '\'})">Delete</button>' +
+        '<button class="btn-sm" onclick="confirmDelete(\'' + w.id + '\', \'' + escapeHtml(w.name).replace(/'/g, "\\'") + '\')">Delete</button>' +
         '</div></div>';
     }
     list.innerHTML = html;
@@ -391,6 +571,23 @@ window.mirror = {
         '<div class="activity-status ' + statusClass + '">' + statusText + '</div></div>';
     }
     list.innerHTML = html;
+  },
+
+  updateGoogleStatus: function(connected) {
+    var dot = document.getElementById('google-status-dot');
+    var btn = document.getElementById('google-connect-btn');
+    if (!dot || !btn) return;
+    dot.className = 'status-dot ' + (connected ? 'granted' : 'denied');
+    btn.textContent = connected ? 'Disconnect' : 'Connect';
+    btn.onclick = connected ? disconnectGoogle : connectGoogle;
+  },
+
+  showKeyTestResult: function(success) {
+    if (success) {
+      showToastMsg('API key is valid');
+    } else {
+      showErrorToast('API key is invalid or network error');
+    }
   }
 };
 

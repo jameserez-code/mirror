@@ -1,10 +1,32 @@
 import AppKit
 import WebKit
 
+class MirrorWebView: WKWebView {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) {
+            switch event.charactersIgnoringModifiers {
+            case "v":
+                if NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: self) { return true }
+            case "c":
+                if NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: self) { return true }
+            case "x":
+                if NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: self) { return true }
+            case "a":
+                if NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: self) { return true }
+            case "z":
+                if NSApp.sendAction(Selector(("undo:")), to: nil, from: self) { return true }
+            default:
+                break
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+}
+
 class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNavigationDelegate {
     weak var workflowEngine: WorkflowEngine?
-    private var webView: WKWebView!
-    private var settingsWebView: WKWebView?
+    private var webView: MirrorWebView!
+    private var settingsWebView: MirrorWebView?
     private var settingsWindow: NSWindow?
     private let captureManager = CaptureManager.shared
     private let permissionsManager = PermissionsManager()
@@ -46,14 +68,42 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         fatalError("init(coder:) not implemented")
     }
 
+    deinit {
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "mirrorBridge")
+        settingsWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "mirrorBridge")
+        eventCountTimer?.invalidate()
+        if let monitor = escEventMonitor { NSEvent.removeMonitor(monitor) }
+        analysisTask?.cancel()
+    }
+
     // MARK: - Build Main WebView
 
     private func buildWebView() {
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "mirrorBridge")
+        config.preferences.isTextInteractionEnabled = true
+#if DEBUG
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+#endif
 
-        webView = WKWebView(frame: .zero, configuration: config)
+        let pasteScript = WKUserScript(
+            source: """
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('input, textarea').forEach(function(el) {
+                    el.addEventListener('keydown', function(e) {
+                        if (e.metaKey && e.key === 'v') {
+                            e.stopPropagation();
+                        }
+                    });
+                });
+            });
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        config.userContentController.addUserScript(pasteScript)
+
+        webView = MirrorWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         webView.setValue(false, forKey: "drawsBackground")
         webView.autoresizingMask = [.width, .height]
@@ -88,9 +138,29 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "mirrorBridge")
+        config.preferences.isTextInteractionEnabled = true
+#if DEBUG
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+#endif
 
-        let swv = WKWebView(frame: win.contentView?.bounds ?? .zero, configuration: config)
+        let pasteScript = WKUserScript(
+            source: """
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('input, textarea').forEach(function(el) {
+                    el.addEventListener('keydown', function(e) {
+                        if (e.metaKey && e.key === 'v') {
+                            e.stopPropagation();
+                        }
+                    });
+                });
+            });
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        config.userContentController.addUserScript(pasteScript)
+
+        let swv = MirrorWebView(frame: win.contentView?.bounds ?? .zero, configuration: config)
         swv.autoresizingMask = [.width, .height]
         swv.setValue(false, forKey: "drawsBackground")
         swv.navigationDelegate = self
@@ -98,6 +168,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         let settingsVC = NSViewController()
         settingsVC.view = swv
         win.contentViewController = settingsVC
+        win.initialFirstResponder = swv
 
         let html = Settings.loadHTML("settings")
         if html.isEmpty {
@@ -150,6 +221,13 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
                 refreshMenuBar()
             }
 
+        case "workflow.enable":
+            if let id = body["id"] as? String {
+                _ = workflowEngine?.enable(workflowId: id)
+                sendWorkflowList()
+                refreshMenuBar()
+            }
+
         case "workflow.delete":
             if let id = body["id"] as? String {
                 _ = workflowEngine?.delete(workflowId: id)
@@ -178,6 +256,28 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
                 sendSettingsSync(to: targetWebView)
             }
 
+        case "settings.clearAPIKey":
+            if let p = body["provider"] as? String {
+                CredentialStore.shared.deleteAPIKey(provider: p)
+                Settings.clearAPIKey(provider: p)
+                sendSettingsSync(to: targetWebView)
+            }
+
+        case "settings.testKey":
+            if let provider = body["provider"] as? String {
+                let wv = targetWebView ?? webView!
+                Task {
+                    let result = await AnalysisPipeline.testConnection(provider: provider)
+                    await MainActor.run {
+                        if result {
+                            self.callJS(on: wv, "window.mirror.showKeyTestResult", args: [true])
+                        } else {
+                            self.callJS(on: wv, "window.mirror.showKeyTestResult", args: [false])
+                        }
+                    }
+                }
+            }
+
         case "permissions.check":
             handlePermissionsCheck(webView: targetWebView)
 
@@ -198,6 +298,40 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         case "activity.list":
             sendActivityList(to: targetWebView)
+
+        case "integrations.connectGoogle":
+            let oauthManager = GoogleOAuthManager()
+            oauthManager.startAuthFlow { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        self.callJS(on: self.settingsWebView ?? self.webView!, "window.mirror.updateGoogleStatus", args: [true])
+                    case .failure(let error):
+                        self.callJS(on: self.settingsWebView ?? self.webView!, "window.mirror.showError", args: [error.localizedDescription])
+                    }
+                }
+            }
+
+        case "integrations.disconnectGoogle":
+            GoogleOAuthManager.disconnect()
+            callJS(on: settingsWebView ?? webView!, "window.mirror.updateGoogleStatus", args: [false])
+
+        case "integrations.status":
+            let target = targetWebView ?? webView!
+            callJS(on: target, "window.mirror.updateGoogleStatus", args: [GoogleOAuthManager.isConnected()])
+
+        case "clipboard.read":
+            let targetField = body["targetField"] as? String ?? ""
+            let targetWV = targetWebView ?? webView!
+            if let clipboardString = NSPasteboard.general.string(forType: .string) {
+                let escaped = clipboardString
+                    .replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "'", with: "\\'")
+                    .replacingOccurrences(of: "\n", with: "")
+                    .replacingOccurrences(of: "\r", with: "")
+                let js = "var el=document.getElementById('\(targetField)'); if(el){el.value='\(escaped)';el.type='password';var btn=el.nextElementSibling;if(btn)btn.textContent='Show';}"
+                targetWV.evaluateJavaScript(js, completionHandler: nil)
+            }
 
         default:
             break
@@ -528,32 +662,19 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
     /// Call a JS function with a pre-encoded JSON string argument (for large payloads like workflow)
     private func callJS(on target: WKWebView, _ fn: String, jsonArg: String) {
-        let safe = jsonArg.replacingOccurrences(of: "\\", with: "\\\\")
-                         .replacingOccurrences(of: "'", with: "\\'")
-                         .replacingOccurrences(of: "\n", with: "\\n")
-                         .replacingOccurrences(of: "\r", with: "\\r")
-        let js = "\(fn)(JSON.parse('\(safe)'))"
-        target.evaluateJavaScript(js) { _, error in
-            if let error = error {
-                print("[Mirror JS] \(error.localizedDescription) — JSON parse failed, retrying with base64")
-                self.callJSBase64(on: target, fn, json: jsonArg)
-            }
-        }
-    }
-
-    /// Fallback: pass JSON as base64
-    private func callJSBase64(on target: WKWebView, _ fn: String, json: String) {
-        guard let data = json.data(using: .utf8) else { return }
+        guard let data = jsonArg.data(using: .utf8) else { return }
         let b64 = data.base64EncodedString()
-        // Decode base64 to UTF-8 bytes via a two-step process in JS
         let js = """
         (function(){
             var b='\(b64)';
-            var s=atob(b);
-            var bytes=new Uint8Array(s.length);
-            for(var i=0;i<s.length;i++)bytes[i]=s.charCodeAt(i);
-            var d=new TextDecoder().decode(bytes);
-            \(fn)(JSON.parse(d));
+            try {
+                var s=atob(b);
+                var bytes=new Uint8Array(s.length);
+                for(var i=0;i<s.length;i++)bytes[i]=s.charCodeAt(i);
+                var d=new TextDecoder().decode(bytes);
+                var obj=JSON.parse(d);
+                \(fn)(obj);
+            } catch(e) { console.error('Mirror bridge decode error:', e); }
         })()
         """
         target.evaluateJavaScript(js, completionHandler: nil)
@@ -582,6 +703,16 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if webView === self.webView { sendWorkflowList() }
+    }
+
+    // MARK: - NSMenuItemValidation
+
+    @objc func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(NSText.paste(_:)) { return true }
+        if item.action == #selector(NSText.copy(_:)) { return true }
+        if item.action == #selector(NSText.cut(_:)) { return true }
+        if item.action == #selector(NSText.selectAll(_:)) { return true }
+        return true
     }
 
     // MARK: - Cron Helper

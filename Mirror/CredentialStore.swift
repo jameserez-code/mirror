@@ -24,6 +24,20 @@ class CredentialStore {
         deleteFromKeychain(service: serviceName, account: account)
     }
 
+    // MARK: - Generic Key/Value (for OAuth tokens)
+
+    func save(key: String, value: String) {
+        saveToKeychain(service: serviceName, account: key, value: value)
+    }
+
+    func get(key: String) -> String? {
+        return readFromKeychain(service: serviceName, account: key)
+    }
+
+    func delete(key: String) {
+        deleteFromKeychain(service: serviceName, account: key)
+    }
+
     // MARK: - OAuth Tokens
 
     func saveOAuthToken(service: String, token: String) {

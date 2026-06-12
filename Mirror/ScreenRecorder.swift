@@ -10,6 +10,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var isRecording: Bool = false
     private let frameInterval: TimeInterval = 1.0
     private var lastFrameTime: TimeInterval = 0
+    private let processingQueue = DispatchQueue(label: "com.mirror.screenrecorder.processing", qos: .utility)
 
     struct ScreenFrame: Codable {
         let index: Int
@@ -40,7 +41,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         config.colorSpaceName = CGColorSpace.sRGB
 
         stream = SCStream(filter: filter, configuration: config, delegate: self)
-        try stream?.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
+        try stream?.addStreamOutput(self, type: .screen, sampleHandlerQueue: processingQueue)
         try await stream?.startCapture()
         isRecording = true
     }
@@ -66,10 +67,9 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         let context = CIContext()
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
 
-        let nsImage = NSImage(cgImage: cgImage, size: NSSize(width: ciImage.extent.width, height: ciImage.extent.height))
-        guard let tiffData = nsImage.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return }
+        let bitmapImage = NSBitmapImageRep(cgImage: cgImage)
+        bitmapImage.size = NSSize(width: ciImage.extent.width, height: ciImage.extent.height)
+        guard let pngData = bitmapImage.representation(using: .png, properties: [:]) else { return }
 
         let filename = "frame_\(String(format: "%04d", frameCount)).png"
         let fileURL = sessionDir?.appendingPathComponent("frames").appendingPathComponent(filename)
@@ -80,5 +80,12 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
 
     enum RecorderError: Error {
         case noDisplayAvailable
+    }
+
+    // MARK: - SCStreamDelegate
+
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        print("[Mirror] Screen recording stream stopped with error: \(error.localizedDescription)")
+        isRecording = false
     }
 }

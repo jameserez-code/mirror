@@ -16,3 +16,6 @@ Logs/
 *.xcodeproj/
 *.xcworkspace/
 DerivedData/
+
+# OAuth credentials (contains client secrets)
+Mirror/Config.swift
