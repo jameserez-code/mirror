@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mirror — Workflow Editor</title>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "reactflow": "https://esm.sh/reactflow@11.11.4"
+  }
+}
+</script>
+<style>
+  :root {
+    --bg: #0d0d10; --bg2: #18181c; --bg3: #222228; --bg4: #2a2a30;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.06);
+    --accent: #6366f1; --accent-light: #818cf8;
+    --text: #f1f5f9; --text2: #94a3b8; --text3: #475569;
+    --green: #22c55e; --red: #ef4444; --yellow: #eab308; --blue: #3b82f6; --purple: #8b5cf6; --amber: #f59e0b;
+    --radius: 10px; --radius-sm: 7px; --radius-xs: 5px;
+    --toolbar-h: 48px; --sidebar-w: 260px; --inspector-w: 380px; --exec-h: 240px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+    background: var(--bg); color: var(--text); font-size: 13px;
+    height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased;
+  }
+  #root { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+
+  /* Toolbar */
+  .toolbar {
+    height: var(--toolbar-h); display: flex; align-items: center; padding: 0 16px;
+    background: var(--bg2); border-bottom: 1px solid var(--border); gap: 8px; flex-shrink: 0;
+    z-index: 10;
+  }
+  .toolbar-logo { font-size: 15px; font-weight: 700; color: var(--accent-light); margin-right: 12px; letter-spacing: -0.3px; }
+  .toolbar-name { font-size: 13px; color: var(--text); font-weight: 500; margin-right: auto; }
+  .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .toolbar-btn {
+    height: 28px; padding: 0 12px; background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.12s; font-family: inherit;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .toolbar-btn:hover { border-color: var(--accent); color: var(--accent-light); }
+  .toolbar-btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .toolbar-btn.accent:hover { background: var(--accent-light); }
+  .toolbar-btn.danger { border-color: rgba(239,68,68,0.3); color: var(--red); }
+  .status-badge {
+    font-size: 11px; padding: 2px 10px; border-radius: 100px; font-weight: 600;
+  }
+  .status-badge.active { background: rgba(34,197,94,0.15); color: var(--green); }
+  .status-badge.draft { background: rgba(148,163,184,0.15); color: var(--text3); }
+
+  /* Layout */
+  .workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+  /* Left Sidebar */
+  .sidebar {
+    width: var(--sidebar-w); background: var(--bg2); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0; z-index: 5;
+  }
+  .sidebar-search {
+    padding: 12px;
+  }
+  .sidebar-search input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+  }
+  .sidebar-search input:focus { border-color: var(--accent); }
+  .sidebar-cats { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+  .sidebar-cat {
+    margin-bottom: 16px;
+  }
+  .sidebar-cat-header {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text3); padding: 4px 8px; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+  .sidebar-cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .sidebar-node {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px;
+    cursor: grab; transition: background 0.1s; font-size: 12px; color: var(--text2);
+  }
+  .sidebar-node:hover { background: var(--bg3); color: var(--text); }
+  .sidebar-node:active { cursor: grabbing; }
+  .sidebar-node-icon { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+
+  /* Canvas */
+  .canvas-wrap { flex: 1; position: relative; }
+  .react-flow__node { font-family: inherit !important; }
+  .react-flow__attribution { display: none !important; }
+
+  /* Inspector */
+  .inspector {
+    width: var(--inspector-w); background: var(--bg2); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0; z-index: 5; overflow: hidden;
+  }
+  .inspector.hidden { display: none; }
+  .inspector-tabs {
+    display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .inspector-tab {
+    flex: 1; padding: 10px 0; text-align: center; font-size: 11px; font-weight: 600;
+    color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all 0.12s; background: none; font-family: inherit; border-top: none; border-left: none; border-right: none;
+  }
+  .inspector-tab.active { color: var(--accent-light); border-bottom-color: var(--accent); }
+  .inspector-tab:hover { color: var(--text2); }
+  .inspector-content { flex: 1; overflow-y: auto; padding: 16px; }
+  .inspector-section { margin-bottom: 20px; }
+  .inspector-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text3); margin-bottom: 6px;
+  }
+  .inspector-field {
+    margin-bottom: 12px;
+  }
+  .inspector-field label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 4px; }
+  .inspector-field input, .inspector-field textarea, .inspector-field select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+    padding: 7px 10px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+  }
+  .inspector-field input:focus, .inspector-field textarea:focus { border-color: var(--accent); }
+  .inspector-field textarea { resize: vertical; min-height: 60px; }
+  .inspector-badge {
+    display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+  }
+  .badge-cloud { background: rgba(34,197,94,0.15); color: #4ade80; }
+  .badge-desktop { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  .inspector-evidence-item {
+    font-size: 11px; color: var(--text2); padding: 6px 0; border-bottom: 1px solid var(--border2);
+  }
+  .inspector-evidence-item:last-child { border-bottom: none; }
+  .inspector-no-selection {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; color: var(--text3); font-size: 12px; text-align: center; padding: 40px;
+  }
+
+  /* Execution Timeline */
+  .exec-panel {
+    height: var(--exec-h); background: var(--bg2); border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0; z-index: 5;
+  }
+  .exec-panel.collapsed { height: 36px; }
+  .exec-header {
+    height: 36px; display: flex; align-items: center; padding: 0 16px;
+    border-bottom: 1px solid var(--border); gap: 12px; flex-shrink: 0; cursor: pointer;
+  }
+  .exec-header-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
+  .exec-runs { flex: 1; overflow-y: auto; padding: 8px 16px; }
+  .exec-run-row {
+    display: flex; align-items: center; gap: 10px; padding: 6px 0;
+    font-size: 11px; border-bottom: 1px solid var(--border2);
+  }
+  .exec-run-row:last-child { border-bottom: none; }
+  .exec-run-status { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8px; flex-shrink: 0; }
+  .exec-run-status.success { background: rgba(34,197,94,0.15); color: var(--green); }
+  .exec-run-status.failed { background: rgba(239,68,68,0.15); color: var(--red); }
+  .exec-run-status.running { background: rgba(59,130,246,0.15); color: var(--blue); animation: pulse 1.5s infinite; }
+  .exec-run-time { color: var(--text3); width: 50px; flex-shrink: 0; }
+  .exec-run-name { flex: 1; }
+  .exec-run-dur { color: var(--text3); width: 50px; text-align: right; flex-shrink: 0; }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes flowDash { to { stroke-dashoffset: -20; } }
+  @keyframes nodePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 50% { box-shadow: 0 0 0 6px rgba(99,102,241,0); } }
+
+  .react-flow__minimap { border-radius: 8px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
+  .react-flow__controls { border-radius: 8px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
+  .react-flow__controls-button { background: var(--bg2) !important; border-bottom: 1px solid var(--border) !important; fill: var(--text2) !important; }
+  .react-flow__controls-button:hover { background: var(--bg3) !important; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { createRoot } from 'react-dom/client';
+import ReactFlow, {
+  ReactFlowProvider, useNodesState, useEdgesState, addEdge, Controls, MiniMap, Background,
+  Handle, Position, useReactFlow, MarkerType, Panel, getConnectedEdges, getIncomers, getOutgoers,
+} from 'reactflow';
+
+// ═══════════════════════════════════════════
+// Node Type Registry
+// ═══════════════════════════════════════════
+
+const NODE_TYPES = {
+  trigger: {
+    category: 'trigger', color: '#eab308', bg: 'rgba(234,179,8,0.08)', icon: '▶',
+    nodes: [
+      { type: 'schedule_trigger', label: 'Schedule', icon: '⏰', desc: 'Run on a cron schedule' },
+      { type: 'manual_trigger', label: 'Manual Trigger', icon: '👆', desc: 'Trigger manually' },
+      { type: 'file_watcher', label: 'File Watcher', icon: '📁', desc: 'Trigger on file changes' },
+      { type: 'email_received', label: 'Email Received', icon: '📧', desc: 'Trigger on new email' },
+    ]
+  },
+  dataSource: {
+    category: 'dataSource', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', icon: '⬇',
+    nodes: [
+      { type: 'gmail_search', label: 'Gmail Search', icon: 'G', desc: 'Search Gmail inbox' },
+      { type: 'gmail_fetch', label: 'Gmail Message', icon: 'M', desc: 'Fetch specific email' },
+      { type: 'spreadsheet_read', label: 'Sheets Read', icon: 'S', desc: 'Read spreadsheet data' },
+      { type: 'drive_fetch', label: 'Google Drive', icon: 'D', desc: 'Fetch Drive files' },
+      { type: 'slack_fetch', label: 'Slack Message', icon: '#', desc: 'Fetch Slack messages' },
+      { type: 'file_read', label: 'Local File', icon: '📄', desc: 'Read local file' },
+    ]
+  },
+  transformation: {
+    category: 'transformation', color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', icon: '⚡',
+    nodes: [
+      { type: 'extract_fields', label: 'Extract Fields', icon: '✂', desc: 'Extract structured data' },
+      { type: 'summarize', label: 'Summarize', icon: '📝', desc: 'AI text summarization' },
+      { type: 'classify', label: 'Classify', icon: '🏷', desc: 'Categorize content' },
+      { type: 'filter', label: 'Filter', icon: '🔍', desc: 'Filter by condition' },
+      { type: 'map_fields', label: 'Map Fields', icon: '↔', desc: 'Remap field names' },
+    ]
+  },
+  decision: {
+    category: 'decision', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', icon: '◇',
+    nodes: [
+      { type: 'condition', label: 'If Condition', icon: '?', desc: 'Branch on condition' },
+      { type: 'branch', label: 'Branch', icon: '⑂', desc: 'Multi-way branch' },
+      { type: 'approval_required', label: 'Approval', icon: '✓', desc: 'Require human approval' },
+    ]
+  },
+  action: {
+    category: 'action', color: '#22c55e', bg: 'rgba(34,197,94,0.08)', icon: '→',
+    nodes: [
+      { type: 'send_email', label: 'Send Email', icon: '✉', desc: 'Send via Gmail' },
+      { type: 'append_sheet_row', label: 'Append Sheet', icon: '📊', desc: 'Add row to sheet' },
+      { type: 'slack_post', label: 'Slack Post', icon: '#', desc: 'Post to Slack' },
+      { type: 'upload_file', label: 'Upload File', icon: '⬆', desc: 'Upload to Drive' },
+      { type: 'notify_user', label: 'Notify User', icon: '🔔', desc: 'Send notification' },
+    ]
+  },
+  desktop: {
+    category: 'desktop', color: '#6b7280', bg: 'rgba(107,114,128,0.08)', icon: '💻',
+    nodes: [
+      { type: 'open_application', label: 'Open App', icon: '📱', desc: 'Launch application' },
+      { type: 'click_ui_element', label: 'Click UI', icon: '🖱', desc: 'Click element' },
+      { type: 'type_text', label: 'Type Text', icon: '⌨', desc: 'Type keystrokes' },
+      { type: 'desktop_navigation', label: 'Navigate', icon: '🧭', desc: 'Navigate browser' },
+    ]
+  },
+};
+
+const CATEGORY_COLORS = {
+  trigger: '#eab308', dataSource: '#3b82f6', transformation: '#8b5cf6',
+  decision: '#f59e0b', action: '#22c55e', desktop: '#6b7280'
+};
+
+const CATEGORY_BG = {
+  trigger: 'rgba(234,179,8,0.08)', dataSource: 'rgba(59,130,246,0.08)',
+  transformation: 'rgba(139,92,246,0.08)', decision: 'rgba(245,158,11,0.08)',
+  action: 'rgba(34,197,94,0.08)', desktop: 'rgba(107,114,128,0.08)'
+};
+
+// ═══════════════════════════════════════════
+// Custom Node Component
+// ═══════════════════════════════════════════
+
+function MirrorNode({ id, data, selected }) {
+  const cat = data.category || 'action';
+  const color = CATEGORY_COLORS[cat] || '#6b7280';
+  const bg = CATEGORY_BG[cat] || 'rgba(107,114,128,0.08)';
+  const conf = data.confidence ?? 0.5;
+  const exec = data.executionType || 'local';
+  const isDisabled = data.disabled;
+
+  return React.createElement('div', {
+    className: 'mirror-node',
+    style: {
+      background: '#18181c',
+      border: `1.5px solid ${selected ? color : 'rgba(255,255,255,0.08)'}`,
+      borderRadius: '12px',
+      minWidth: '240px',
+      maxWidth: '320px',
+      boxShadow: selected ? `0 0 0 2px ${color}40, 0 4px 20px rgba(0,0,0,0.4)` : '0 2px 10px rgba(0,0,0,0.3)',
+      opacity: isDisabled ? 0.5 : 1,
+      transition: 'all 0.15s ease',
+      fontFamily: 'inherit',
+    }
+  }, [
+    // Header
+    React.createElement('div', {
+      key: 'h',
+      style: {
+        padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex', alignItems: 'center', gap: '8px',
+        background: bg, borderRadius: '12px 12px 0 0',
+      }
+    }, [
+      React.createElement('span', { key: 'i', style: { fontSize: '14px' } }, data.icon || '⬡'),
+      React.createElement('span', { key: 'n', style: { fontSize: '12px', fontWeight: 600, color: '#f1f5f9', flex: 1 } }, data.label || id),
+      data.provider && React.createElement('span', {
+        key: 'p',
+        style: {
+          fontSize: '9px', padding: '1px 6px', borderRadius: '4px',
+          background: 'rgba(255,255,255,0.06)', color: '#94a3b8', fontWeight: 600,
+        }
+      }, data.provider),
+      React.createElement('div', {
+        key: 's',
+        style: {
+          width: '7px', height: '7px', borderRadius: '50%', background: color,
+          flexShrink: 0,
+        }
+      }),
+    ]),
+    // Body
+    data.description && React.createElement('div', {
+      key: 'b',
+      style: { padding: '10px 14px', fontSize: '11px', color: '#94a3b8', lineHeight: 1.5 }
+    }, data.description),
+    // Footer
+    React.createElement('div', {
+      key: 'f',
+      style: {
+        padding: '8px 14px', borderTop: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#475569',
+      }
+    }, [
+      React.createElement('span', { key: 'c', style: { color: conf > 0.7 ? '#22c55e' : conf > 0.5 ? '#eab308' : '#ef4444' } },
+        `${Math.round(conf * 100)}%`),
+      React.createElement('span', { key: 'e', style: { marginLeft: 'auto', padding: '1px 6px', borderRadius: '3px', background: exec === 'cloud' ? 'rgba(34,197,94,0.1)' : 'rgba(99,102,241,0.1)', color: exec === 'cloud' ? '#4ade80' : '#a5b4fc' } },
+        exec === 'cloud' ? '☁ Cloud' : exec === 'desktop' ? '💻 Desktop' : '🔧 Local'),
+    ]),
+    // Handles
+    React.createElement(Handle, { key: 'hi', type: 'target', position: Position.Left, style: { width: 8, height: 8, background: color, border: '2px solid #18181c', borderRadius: '50%' } }),
+    React.createElement(Handle, { key: 'ho', type: 'source', position: Position.Right, style: { width: 8, height: 8, background: color, border: '2px solid #18181c', borderRadius: '50%' } }),
+  ]);
+}
+
+const nodeTypes = { mirrorNode: MirrorNode };
+
+// ═══════════════════════════════════════════
+// Sidebar Component
+// ═══════════════════════════════════════════
+
+function Sidebar({ search, setSearch }) {
+  const cats = Object.entries(NODE_TYPES);
+
+  const onDragStart = (e, node) => {
+    e.dataTransfer.setData('application/mirrornode', JSON.stringify(node));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  return React.createElement('div', { className: 'sidebar' }, [
+    React.createElement('div', { className: 'sidebar-search', key: 's' },
+      React.createElement('input', {
+        type: 'text', placeholder: 'Search nodes...', value: search,
+        onChange: e => setSearch(e.target.value),
+      })
+    ),
+    React.createElement('div', { className: 'sidebar-cats', key: 'c' },
+      cats.map(([catKey, cat]) => {
+        const filtered = search ? cat.nodes.filter(n => n.label.toLowerCase().includes(search.toLowerCase())) : cat.nodes;
+        if (filtered.length === 0) return null;
+        return React.createElement('div', { className: 'sidebar-cat', key: catKey }, [
+          React.createElement('div', { className: 'sidebar-cat-header', key: 'h' }, [
+            React.createElement('span', { className: 'sidebar-cat-dot', style: { background: cat.color } }),
+            catKey.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()),
+          ]),
+          ...filtered.map(node =>
+            React.createElement('div', {
+              className: 'sidebar-node', key: node.type,
+              draggable: true,
+              onDragStart: e => onDragStart(e, node),
+            }, [
+              React.createElement('span', { className: 'sidebar-node-icon', style: { background: cat.bg, color: cat.color }, key: 'i' }, node.icon),
+              React.createElement('div', { key: 't' }, [
+                React.createElement('div', {}, node.label),
+                React.createElement('div', { style: { fontSize: '10px', color: '#475569', marginTop: '1px' } }, node.desc),
+              ]),
+            ])
+          )
+        ]);
+      })
+    ),
+  ]);
+}
+
+// ═══════════════════════════════════════════
+// Inspector Component
+// ═══════════════════════════════════════════
+
+function Inspector({ selectedNode, onClose }) {
+  const [activeTab, setActiveTab] = useState('summary');
+
+  if (!selectedNode) {
+    return React.createElement('div', { className: 'inspector hidden' });
+  }
+
+  const TABS = ['Summary', 'Configuration', 'Evidence', 'Data Flow', 'Execution'];
+  const data = selectedNode.data || {};
+
+  return React.createElement('div', { className: 'inspector' }, [
+    React.createElement('div', { className: 'inspector-tabs', key: 'tabs' },
+      TABS.map(tab =>
+        React.createElement('button', {
+          key: tab, className: `inspector-tab ${activeTab === tab.toLowerCase().replace(' ', '') ? 'active' : ''}`,
+          onClick: () => setActiveTab(tab.toLowerCase().replace(' ', '')),
+        }, tab)
+      )
+    ),
+    React.createElement('div', { className: 'inspector-content', key: 'content' },
+      activeTab === 'summary' && React.createElement('div', {}, [
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Node Info'),
+          React.createElement('div', { style: { fontSize: '14px', fontWeight: 600, marginBottom: '4px' } }, data.label || selectedNode.id),
+          React.createElement('div', { style: { fontSize: '11px', color: '#94a3b8', marginBottom: '8px' } }, data.description || 'No description'),
+        ]),
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Properties'),
+          React.createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' } }, [
+            React.createElement('span', { className: `inspector-badge ${data.executionType === 'cloud' ? 'badge-cloud' : 'badge-desktop'}` },
+              data.executionType === 'cloud' ? '☁ Cloud' : '💻 ' + (data.executionType || 'Local')),
+            React.createElement('span', { className: 'inspector-badge', style: { background: 'rgba(148,163,184,0.1)', color: '#94a3b8' } },
+              (data.category || 'action').replace(/([A-Z])/g, ' $1')),
+            data.provider && React.createElement('span', { className: 'inspector-badge', style: { background: 'rgba(99,102,241,0.1)', color: '#a5b4fc' } },
+              data.provider),
+          ]),
+        ]),
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Confidence'),
+          React.createElement('div', { style: { height: '4px', background: '#222228', borderRadius: '2px', overflow: 'hidden' } },
+            React.createElement('div', {
+              style: {
+                width: `${Math.round((data.confidence || 0.5) * 100)}%`,
+                height: '100%', borderRadius: '2px',
+                background: (data.confidence || 0.5) > 0.7 ? '#22c55e' : (data.confidence || 0.5) > 0.5 ? '#eab308' : '#ef4444',
+                transition: 'width 0.3s'
+              }
+            })
+          ),
+          React.createElement('div', { style: { fontSize: '11px', color: '#475569', marginTop: '4px' } },
+            `${Math.round((data.confidence || 0.5) * 100)}% — ${(data.confidence || 0.5) > 0.7 ? 'High confidence' : (data.confidence || 0.5) > 0.5 ? 'Medium confidence' : 'Low confidence'}`),
+        ]),
+      ]),
+
+      activeTab === 'configuration' && React.createElement('div', {}, [
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Parameters'),
+          data.config?.parameters?.map((param, i) =>
+            React.createElement('div', { className: 'inspector-field', key: i }, [
+              React.createElement('label', {}, param.label || param.key),
+              param.type === 'select'
+                ? React.createElement('select', {},
+                    (param.options || []).map(o => React.createElement('option', { key: o.value, value: o.value }, o.label)))
+                : param.type === 'cron'
+                  ? React.createElement('input', { type: 'text', defaultValue: param.value || '', placeholder: param.placeholder })
+                  : React.createElement('input', { type: param.type === 'secret' ? 'password' : 'text', defaultValue: param.value || '', placeholder: param.placeholder })
+            ])
+          ) || React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No configurable parameters'),
+        ]),
+      ]),
+
+      activeTab === 'evidence' && React.createElement('div', {}, [
+        React.createElement('div', { className: 'inspector-label' }, 'AI Evidence'),
+        (data.metadata?.evidence || []).map((item, i) =>
+          React.createElement('div', { className: 'inspector-evidence-item', key: i }, [
+            React.createElement('div', { style: { fontWeight: 600, marginBottom: '2px' } }, item.type || item.description),
+            React.createElement('div', { style: { fontSize: '11px', color: '#475569' } }, item.description || ''),
+            React.createElement('div', { style: { fontSize: '10px', color: '#475569', marginTop: '2px' } }, `${Math.round((item.confidence || 0.5) * 100)}% confidence`),
+          ])
+        ) || React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No evidence recorded'),
+      ]),
+
+      activeTab === 'dataflow' && React.createElement('div', {}, [
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Inputs'),
+          (data.inputs || []).length > 0
+            ? data.inputs.map((port, i) =>
+                React.createElement('div', { key: i, style: { fontSize: '12px', color: '#94a3b8', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' } }, [
+                  React.createElement('span', { style: { color: '#6366f1' } }, port.label || port.name),
+                  port.entityType && React.createElement('span', { style: { color: '#475569', marginLeft: '8px' } }, `(${port.entityType})`),
+                ]))
+            : React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No inputs'),
+        ]),
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Outputs'),
+          (data.outputs || []).length > 0
+            ? data.outputs.map((port, i) =>
+                React.createElement('div', { key: i, style: { fontSize: '12px', color: '#22c55e', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' } }, [
+                  port.label || port.name,
+                  port.entityType && React.createElement('span', { style: { color: '#475569', marginLeft: '8px' } }, `(${port.entityType})`),
+                ]))
+            : React.createElement('div', { style: { color: '#475569', fontSize: '11px' } }, 'No outputs'),
+        ]),
+      ]),
+
+      activeTab === 'execution' && React.createElement('div', {}, [
+        React.createElement('div', { className: 'inspector-section' }, [
+          React.createElement('div', { className: 'inspector-label' }, 'Execution History'),
+          React.createElement('div', { style: { fontSize: '12px', color: '#94a3b8' } }, 'Last run: Never'),
+          React.createElement('div', { style: { fontSize: '12px', color: '#94a3b8' } }, 'Average duration: --'),
+          React.createElement('div', { style: { fontSize: '12px', color: '#22c55e' } }, 'Success rate: --'),
+        ]),
+      ])
+    ),
+  ]);
+}
+
+// ═══════════════════════════════════════════
+// Main Editor Component
+// ═══════════════════════════════════════════
+
+const INITIAL_NODES = [
+  {
+    id: 'trigger1', type: 'mirrorNode', position: { x: 100, y: 200 },
+    data: { label: 'Schedule', icon: '⏰', category: 'trigger', provider: 'system', confidence: 0.95, executionType: 'cloud', description: 'Runs every weekday at 9am' },
+  },
+  {
+    id: 'step1', type: 'mirrorNode', position: { x: 440, y: 100 },
+    data: { label: 'Gmail Search', icon: 'G', category: 'dataSource', provider: 'gmail', confidence: 0.92, executionType: 'cloud', description: 'Search for "invoice newer_than:7d"' },
+  },
+  {
+    id: 'step2', type: 'mirrorNode', position: { x: 780, y: 200 },
+    data: { label: 'Extract Fields', icon: '✂', category: 'transformation', provider: 'system', confidence: 0.85, executionType: 'cloud', description: 'Extract invoice number, amount, vendor' },
+  },
+  {
+    id: 'step3', type: 'mirrorNode', position: { x: 1120, y: 300 },
+    data: { label: 'Append Sheet', icon: '📊', category: 'action', provider: 'sheets', confidence: 0.88, executionType: 'cloud', description: 'Append to Accounts Payable tracker' },
+  },
+];
+
+const INITIAL_EDGES = [
+  { id: 'e1-2', source: 'trigger1', target: 'step1', type: 'smoothstep', animated: false, style: { stroke: '#475569', strokeWidth: 2 } },
+  { id: 'e2-3', source: 'step1', target: 'step2', type: 'smoothstep', animated: false, style: { stroke: '#475569', strokeWidth: 2 } },
+  { id: 'e3-4', source: 'step2', target: 'step3', type: 'smoothstep', animated: false, style: { stroke: '#475569', strokeWidth: 2 } },
+];
+
+function Editor() {
+  const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [execCollapsed, setExecCollapsed] = useState(true);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const reactFlowWrapper = useRef(null);
+  const { project, fitView } = useReactFlow();
+
+  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
+
+  const onConnect = useCallback(params => {
+    setEdges(eds => addEdge({
+      ...params, type: 'smoothstep',
+      style: { stroke: '#475569', strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#475569', width: 16, height: 16 },
+    }, eds));
+  }, [setEdges]);
+
+  const onNodeClick = useCallback((_, node) => {
+    setSelectedNodeId(node.id);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
+
+  const onDragOver = useCallback(e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(e => {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData('application/mirrornode');
+    if (!raw) return;
+    const nodeData = JSON.parse(raw);
+    const position = project({ x: e.clientX - 320, y: e.clientY - 120 });
+    const id = `node_${Date.now()}`;
+    const cat = Object.values(NODE_TYPES).find(c => c.nodes.some(n => n.type === nodeData.type));
+    setNodes(nds => [...nds, {
+      id, type: 'mirrorNode', position,
+      data: {
+        label: nodeData.label, icon: nodeData.icon, category: cat?.category || 'action',
+        provider: nodeData.type.includes('gmail') ? 'gmail' : nodeData.type.includes('sheet') ? 'sheets' : nodeData.type.includes('slack') ? 'slack' : null,
+        confidence: 0.7, executionType: nodeData.type.includes('desktop') || nodeData.type.includes('click') || nodeData.type.includes('type') ? 'desktop' : 'cloud',
+        description: nodeData.desc,
+      }
+    }]);
+  }, [project, setNodes]);
+
+  const handleDelete = useCallback(() => {
+    if (selectedNodeId) {
+      setNodes(nds => nds.filter(n => n.id !== selectedNodeId));
+      setEdges(eds => eds.filter(e => e.source !== selectedNodeId && e.target !== selectedNodeId));
+      setSelectedNodeId(null);
+    }
+  }, [selectedNodeId, setNodes, setEdges]);
+
+  const handleKeyDown = useCallback(e => {
+    if (e.key === 'Delete' || e.key === 'Backspace') { handleDelete(); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z') { /* undo */ }
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); /* save */ }
+  }, [handleDelete]);
+
+  // Sync with Mirror backend
+  useEffect(() => {
+    if (window.webkit?.messageHandlers?.mirrorBridge) {
+      window.webkit.messageHandlers.mirrorBridge.postMessage({ type: 'editor.ready' });
+    }
+  }, []);
+
+  const runWorkflow = () => {
+    // Animate edges
+    setEdges(eds => eds.map(e => ({ ...e, animated: true, style: { ...e.style, stroke: '#22c55e' } })));
+    setTimeout(() => {
+      setEdges(eds => eds.map(e => ({ ...e, animated: false, style: { ...e.style, stroke: '#475569' } })));
+    }, 2000);
+  };
+
+  return React.createElement('div', { style: { width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' } }, [
+    // Toolbar
+    React.createElement('div', { className: 'toolbar', key: 'toolbar' }, [
+      React.createElement('span', { className: 'toolbar-logo' }, 'Mirror'),
+      React.createElement('span', { className: 'toolbar-name' }, 'Invoice Processing · Draft'),
+      React.createElement('span', { className: 'status-badge draft' }, 'Draft'),
+      React.createElement('div', { className: 'toolbar-sep' }),
+      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Undo'),
+      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Redo'),
+      React.createElement('div', { className: 'toolbar-sep' }),
+      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Analyze'),
+      React.createElement('button', { className: 'toolbar-btn', onClick: () => {} }, 'Validate'),
+      React.createElement('button', { className: 'toolbar-btn accent', onClick: runWorkflow }, '▶ Run Once'),
+      React.createElement('button', { className: 'toolbar-btn accent', style: { background: '#22c55e', borderColor: '#22c55e' }, onClick: () => {} }, 'Deploy'),
+    ]),
+    // Workspace
+    React.createElement('div', { className: 'workspace', key: 'workspace' }, [
+      React.createElement(Sidebar, { key: 'sidebar', search, setSearch }),
+      React.createElement('div', { className: 'canvas-wrap', key: 'canvas', ref: reactFlowWrapper, tabIndex: 0, onKeyDown: handleKeyDown },
+        React.createElement(ReactFlow, {
+          nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick,
+          onDragOver, onDrop,
+          nodeTypes,
+          fitView: true,
+          defaultEdgeOptions: {
+            type: 'smoothstep',
+            style: { stroke: '#475569', strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#475569', width: 16, height: 16 },
+          },
+          style: { background: '#0d0d10' },
+          snapToGrid: true,
+          snapGrid: [20, 20],
+          minZoom: 0.1, maxZoom: 2,
+          deleteKeyCode: ['Backspace', 'Delete'],
+          multiSelectionKeyCode: 'Shift',
+          selectionOnDrag: true,
+          panOnDrag: [1, 2],
+          selectNodesOnDrag: false,
+        }, [
+          React.createElement(Background, { color: '#222228', gap: 20, size: 1, key: 'bg' }),
+          React.createElement(Controls, { key: 'controls' }),
+          React.createElement(MiniMap, { key: 'minimap', style: { background: '#18181c' }, maskColor: 'rgba(0,0,0,0.6)', nodeColor: n => CATEGORY_COLORS[n.data?.category] || '#6b7280', nodeStrokeWidth: 2, pannable: true, zoomable: true }),
+        ])
+      ),
+      React.createElement(Inspector, { key: 'inspector', selectedNode, onClose: () => setSelectedNodeId(null) }),
+    ]),
+    // Execution Timeline
+    React.createElement('div', { className: `exec-panel ${execCollapsed ? 'collapsed' : ''}`, key: 'exec' }, [
+      React.createElement('div', { className: 'exec-header', onClick: () => setExecCollapsed(!execCollapsed) }, [
+        React.createElement('span', { className: 'exec-header-title' }, execCollapsed ? '▶ Execution Timeline' : '▼ Execution Timeline'),
+        React.createElement('span', { style: { fontSize: '10px', color: 'var(--text3)', marginLeft: 'auto' } }, execCollapsed ? '' : 'No runs yet'),
+      ]),
+      !execCollapsed && React.createElement('div', { className: 'exec-runs' }, [
+        React.createElement('div', { style: { color: 'var(--text3)', fontSize: '12px', textAlign: 'center', padding: '40px' } }, 'Run a workflow to see execution history'),
+      ]),
+    ]),
+  ]);
+}
+
+// ═══════════════════════════════════════════
+// Mount
+// ═══════════════════════════════════════════
+
+const root = createRoot(document.getElementById('root'));
+root.render(React.createElement(ReactFlowProvider, null, React.createElement(Editor)));
+</script>
+</body>
+</html>

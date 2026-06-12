@@ -28,6 +28,8 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     private var webView: MirrorWebView!
     private var settingsWebView: MirrorWebView?
     private var settingsWindow: NSWindow?
+    private var editorWebView: MirrorWebView?
+    private var editorWindow: NSWindow?
     private let captureManager = CaptureManager.shared
     private let permissionsManager = PermissionsManager()
     private let historyStore = HistoryStore()
@@ -71,6 +73,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "mirrorBridge")
         settingsWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "mirrorBridge")
+        editorWebView?.configuration.userContentController.removeScriptMessageHandler(forName: "mirrorBridge")
         eventCountTimer?.invalidate()
         if let monitor = escEventMonitor { NSEvent.removeMonitor(monitor) }
         analysisTask?.cancel()
@@ -182,6 +185,52 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         win.makeKeyAndOrderFront(nil)
     }
 
+    // MARK: - Editor Window
+
+    func openEditorWindow() {
+        if let existing = editorWindow {
+            existing.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let win = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 860),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        win.title = "Mirror — Workflow Editor"
+        win.center()
+        win.isReleasedWhenClosed = false
+        win.minSize = NSSize(width: 900, height: 600)
+        win.titlebarAppearsTransparent = true
+
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(self, name: "mirrorBridge")
+        config.preferences.isTextInteractionEnabled = true
+
+        let ewv = MirrorWebView(frame: win.contentView?.bounds ?? .zero, configuration: config)
+        ewv.autoresizingMask = [.width, .height]
+        ewv.setValue(false, forKey: "drawsBackground")
+        ewv.navigationDelegate = self
+
+        let vc = NSViewController()
+        vc.view = ewv
+        win.contentViewController = vc
+        win.initialFirstResponder = ewv
+
+        let html = Settings.loadHTML("editor")
+        if html.isEmpty {
+            ewv.loadHTMLString("<html><body style='background:#111113;color:#f1f5f9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh'><p>editor.html not found. Rebuild with build.sh.</p></body></html>", baseURL: nil)
+        } else {
+            ewv.loadHTMLString(html, baseURL: nil)
+        }
+
+        editorWebView = ewv
+        editorWindow = win
+        win.makeKeyAndOrderFront(nil)
+    }
+
     // MARK: - Bridge Message Handler
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -240,6 +289,9 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         case "settings.open":
             DispatchQueue.main.async { [weak self] in self?.openSettingsWindow() }
+
+        case "editor.open":
+            DispatchQueue.main.async { [weak self] in self?.openEditorWindow() }
 
         case "settings.ready":
             sendSettingsSync(to: targetWebView)
