@@ -287,6 +287,34 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         case "workflow.list":
             sendWorkflowList()
 
+        case "editor.ready":
+            sendRunHistory(to: targetWebView ?? webView!)
+
+        case "editor.runHistory":
+            sendRunHistory(to: targetWebView ?? webView!)
+
+        case "editor.workflowHealth":
+            if let wfId = body["workflowId"] as? String {
+                sendWorkflowHealth(workflowId: wfId, to: targetWebView ?? webView!)
+            }
+
+        case "editor.runDetail":
+            if let runId = body["runId"] as? String {
+                sendRunDetail(runId: runId, to: targetWebView ?? webView!)
+            }
+
+        case "editor.save":
+            if let graphJSON = body["graph"] as? String {
+                print("[Mirror Editor] Save received: \(graphJSON.prefix(100))...")
+                callJS(on: targetWebView ?? webView!, "window.mirror.onSaved", args: [true])
+            }
+
+        case "editor.deploy":
+            if let name = body["name"] as? String {
+                print("[Mirror Editor] Deploy: \(name)")
+                callJS(on: targetWebView ?? webView!, "window.mirror.onDeployed", args: [true, name])
+            }
+
         case "settings.open":
             DispatchQueue.main.async { [weak self] in self?.openSettingsWindow() }
 
@@ -686,6 +714,57 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             ]
         }
         callJS(on: wv, "window.mirror.setActivityList", args: [entries])
+    }
+
+    // MARK: - Editor Data Senders
+
+    private func sendRunHistory(to webView: WKWebView) {
+        let runs = RunHistoryStore.shared.all().map { run -> [String: Any] in
+            [
+                "runId": run.runId, "workflowId": run.workflowId, "workflowName": run.workflowName,
+                "startedAt": run.startedAt.timeIntervalSince1970, "duration": run.duration,
+                "success": run.success, "summary": run.summary,
+                "totalItems": run.totalItemsProcessed,
+                "nodeCount": run.nodeResults.count,
+                "failureCount": run.nodeResults.filter { !$0.success }.count
+            ]
+        }
+        callJS(on: webView, "window.mirror.setRunHistory", args: [runs])
+    }
+
+    private func sendWorkflowHealth(workflowId: String, to webView: WKWebView) {
+        let health = RunHistoryStore.shared.health(for: workflowId)
+        callJS(on: webView, "window.mirror.setWorkflowHealth", args: [[
+            "workflowId": health.workflowId,
+            "totalRuns": health.totalRuns,
+            "successRate": health.successRate,
+            "totalTimeSavedMinutes": health.totalTimeSavedMinutes,
+            "averageDuration": health.averageDuration,
+            "recentFailureCount": health.recentFailureCount,
+            "isHealthy": health.isHealthy,
+            "statusText": health.statusText,
+            "lastFailureError": health.lastFailureError ?? ""
+        ]])
+    }
+
+    private func sendRunDetail(runId: String, to webView: WKWebView) {
+        guard let run = RunHistoryStore.shared.all().first(where: { $0.runId == runId }) else { return }
+        let nodeResults = run.nodeResults.map { nr -> [String: Any] in
+            [
+                "nodeId": nr.nodeId, "action": nr.action, "label": nr.label,
+                "status": nr.status.rawValue, "duration": nr.duration,
+                "input": nr.input ?? "", "output": nr.output ?? "",
+                "error": nr.error ?? "", "retries": nr.retries
+            ]
+        }
+        callJS(on: webView, "window.mirror.setRunDetail", args: [[
+            "runId": run.runId, "workflowName": run.workflowName,
+            "startedAt": run.startedAt.timeIntervalSince1970, "duration": run.duration,
+            "success": run.success, "summary": run.summary,
+            "totalItems": run.totalItemsProcessed,
+            "timeSavedEstimate": run.timeSavedEstimate,
+            "nodeResults": nodeResults
+        ]])
     }
 
     // MARK: - Safe JS Callers
