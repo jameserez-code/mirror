@@ -7,7 +7,9 @@ class GoogleOAuthManager {
     private let scopes = [
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/gmail.readonly",
-        "https://www.googleapis.com/auth/spreadsheets"
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive.readonly"
     ]
 
     private var codeVerifier: String = ""
@@ -16,10 +18,22 @@ class GoogleOAuthManager {
     // MARK: - Start OAuth Flow
 
     func startAuthFlow(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard !GoogleOAuthConfig.clientId.contains("YOUR_CLIENT_ID") else {
+            completion(.failure(OAuthError.configMissing))
+            return
+        }
+        guard !GoogleOAuthConfig.clientSecret.contains("YOUR_CLIENT_SECRET") else {
+            completion(.failure(OAuthError.configMissing))
+            return
+        }
+
         codeVerifier = generateCodeVerifier()
         let codeChallenge = generateCodeChallenge(from: codeVerifier)
 
-        var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
+        guard var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth") else {
+            completion(.failure(OAuthError.invalidURL))
+            return
+        }
         components.queryItems = [
             URLQueryItem(name: "client_id", value: GoogleOAuthConfig.clientId),
             URLQueryItem(name: "redirect_uri", value: GoogleOAuthConfig.redirectURI),
@@ -36,17 +50,25 @@ class GoogleOAuthManager {
             return
         }
 
+        // Stop any previous listener
+        listener?.stop()
+        listener = nil
+
         listener = LocalCallbackServer(port: 8765)
         listener?.onCallback = { [weak self] code in
-            self?.exchangeCodeForTokens(code: code, completion: completion)
+            guard let self = self else { return }
+            self.exchangeCodeForTokens(code: code, completion: completion)
         }
         listener?.onError = { error in
+            if case OAuthError.userCancelled = error { return }
             completion(.failure(error))
         }
 
         do {
             try listener?.start()
         } catch {
+            listener?.stop()
+            listener = nil
             completion(.failure(error))
             return
         }
@@ -58,8 +80,14 @@ class GoogleOAuthManager {
 
     private func exchangeCodeForTokens(code: String, completion: @escaping (Result<Void, Error>) -> Void) {
         listener?.stop()
+        listener = nil
 
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
+        guard let url = URL(string: "https://oauth2.googleapis.com/token") else {
+            completion(.failure(OAuthError.invalidURL))
+            return
+        }
+
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -81,12 +109,25 @@ class GoogleOAuthManager {
 
         session.dataTask(with: request) { data, response, error in
             if let error = error {
-                completion(.failure(error))
+                DispatchQueue.main.async { completion(.failure(error)) }
                 return
             }
-            guard let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                completion(.failure(OAuthError.invalidResponse))
+
+            guard let httpResponse = response as? HTTPURLResponse, let data = data else {
+                DispatchQueue.main.async { completion(.failure(OAuthError.invalidResponse)) }
+                return
+            }
+
+            // Check for HTTP errors with Google error body
+            if httpResponse.statusCode != 200 {
+                let errorBody = String(data: data, encoding: .utf8) ?? ""
+                print("[Mirror OAuth] Token exchange failed: HTTP \(httpResponse.statusCode) — \(errorBody)")
+                DispatchQueue.main.async { completion(.failure(OAuthError.tokenExchangeFailed)) }
+                return
+            }
+
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                DispatchQueue.main.async { completion(.failure(OAuthError.invalidResponse)) }
                 return
             }
 
@@ -100,8 +141,10 @@ class GoogleOAuthManager {
                 CredentialStore.shared.save(key: "google_token_expiry", value: ISO8601DateFormatter().string(from: expiryDate))
 
                 DispatchQueue.main.async { completion(.success(())) }
+            } else if let errorDesc = json["error_description"] as? String {
+                DispatchQueue.main.async { completion(.failure(OAuthError.apiError(errorDesc))) }
             } else {
-                completion(.failure(OAuthError.tokenExchangeFailed))
+                DispatchQueue.main.async { completion(.failure(OAuthError.tokenExchangeFailed)) }
             }
         }.resume()
     }
@@ -124,7 +167,11 @@ class GoogleOAuthManager {
     }
 
     private func refreshAccessToken(refreshToken: String) async throws -> String {
-        var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
+        guard let url = URL(string: "https://oauth2.googleapis.com/token") else {
+            throw OAuthError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -138,7 +185,22 @@ class GoogleOAuthManager {
             .joined(separator: "&")
             .data(using: .utf8)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OAuthError.tokenRefreshFailed
+        }
+        if httpResponse.statusCode != 200 {
+            let errorBody = String(data: data, encoding: .utf8) ?? ""
+            print("[Mirror OAuth] Token refresh failed: HTTP \(httpResponse.statusCode) — \(errorBody)")
+            // If refresh token is revoked, clear stored tokens
+            if httpResponse.statusCode == 400 {
+                CredentialStore.shared.delete(key: "google_access_token")
+                CredentialStore.shared.delete(key: "google_refresh_token")
+                CredentialStore.shared.delete(key: "google_token_expiry")
+            }
+            throw OAuthError.tokenRefreshFailed
+        }
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let accessToken = json["access_token"] as? String,
               let expiresIn = json["expires_in"] as? Int else {
@@ -159,6 +221,14 @@ class GoogleOAuthManager {
     }
 
     static func disconnect() {
+        // Attempt to revoke the refresh token with Google
+        if let refreshToken = CredentialStore.shared.get(key: "google_refresh_token") {
+            var request = URLRequest(url: URL(string: "https://oauth2.googleapis.com/revoke")!)
+            request.httpMethod = "POST"
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.httpBody = "token=\(refreshToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? refreshToken)".data(using: .utf8)
+            URLSession.shared.dataTask(with: request).resume()
+        }
         CredentialStore.shared.delete(key: "google_access_token")
         CredentialStore.shared.delete(key: "google_refresh_token")
         CredentialStore.shared.delete(key: "google_token_expiry")
@@ -168,7 +238,11 @@ class GoogleOAuthManager {
 
     private func generateCodeVerifier() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let result = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        if result != errSecSuccess {
+            // Fallback: use UUID-based verifier
+            return UUID().uuidString + UUID().uuidString
+        }
         return Data(bytes).base64URLEncodedString()
     }
 
@@ -179,14 +253,25 @@ class GoogleOAuthManager {
     }
 
     enum OAuthError: Error, LocalizedError {
-        case invalidURL, invalidResponse, tokenExchangeFailed, tokenRefreshFailed, notAuthenticated
+        case configMissing
+        case invalidURL
+        case invalidResponse
+        case tokenExchangeFailed
+        case tokenRefreshFailed
+        case notAuthenticated
+        case userCancelled
+        case apiError(String)
+
         var errorDescription: String? {
             switch self {
+            case .configMissing: return "Google OAuth not configured. Add your client ID and secret to Config.swift."
             case .invalidURL: return "Invalid OAuth URL"
             case .invalidResponse: return "Invalid OAuth response"
             case .tokenExchangeFailed: return "Failed to exchange code for tokens"
-            case .tokenRefreshFailed: return "Failed to refresh access token"
+            case .tokenRefreshFailed: return "Failed to refresh access token — reconnecting may be required"
             case .notAuthenticated: return "Google account not connected"
+            case .userCancelled: return "Authorization cancelled"
+            case .apiError(let msg): return "Google API error: \(msg)"
             }
         }
     }
@@ -207,6 +292,8 @@ extension Data {
 
 class LocalCallbackServer {
     private let port: UInt16
+    private var listenSocket: Int32 = -1
+    private var isRunning = false
     var onCallback: ((String) -> Void)?
     var onError: ((Error) -> Void)?
 
@@ -220,6 +307,9 @@ class LocalCallbackServer {
             throw NSError(domain: "Mirror", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not create socket"])
         }
 
+        var reuse = 1
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = port.bigEndian
@@ -232,48 +322,75 @@ class LocalCallbackServer {
         }
         guard bindResult == 0 else {
             close(sock)
-            throw NSError(domain: "Mirror", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not bind port \(port)"])
+            throw NSError(domain: "Mirror", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not bind port \(port). Is another instance running?"])
         }
 
         listen(sock, 1)
+        listenSocket = sock
+        isRunning = true
 
         DispatchQueue.global().async { [weak self] in
-            let client = accept(sock, nil, nil)
-            guard client >= 0 else { close(sock); return }
+            self?.acceptConnection(sock)
+        }
+    }
 
-            var buffer = [UInt8](repeating: 0, count: 4096)
-            let bytesRead = recv(client, &buffer, buffer.count, 0)
-            guard bytesRead > 0 else { close(client); close(sock); return }
+    private func acceptConnection(_ sock: Int32) {
+        defer { close(sock) }
 
-            let request = String(decoding: buffer[0..<Int(bytesRead)], as: UTF8.self)
+        let client = accept(sock, nil, nil)
+        guard client >= 0 else { return }
 
-            var code = ""
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        let bytesRead = recv(client, &buffer, buffer.count, 0)
+        guard bytesRead > 0 else { close(client); return }
+
+        let request = String(decoding: buffer[0..<Int(bytesRead)], as: UTF8.self)
+
+        // Check for error response from Google
+        if request.contains("error=access_denied") {
+            let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<html><body style=\"font-family:-apple-system;text-align:center;padding-top:100px;background:#111;color:#fff;\"><h2>Authorization cancelled</h2><p>You can close this window.</p></body></html>"
+            _ = response.withCString { send(client, $0, strlen($0), 0) }
+            close(client)
+            DispatchQueue.main.async { self.onError?(GoogleOAuthManager.OAuthError.userCancelled) }
+            return
+        }
+
+        // Extract code from the callback
+        var code = ""
+        // Only match if it's the /callback path
+        if request.contains("GET /callback") || request.contains("GET /") {
             if let codeRange = request.range(of: "code=") {
                 let after = request[codeRange.upperBound...]
                 code = after.split(separator: "&").first.map(String.init)
                     ?? after.split(separator: " ").first.map(String.init)
                     ?? ""
             }
+        }
 
-            let response = """
-            HTTP/1.1 200 OK\r
-            Content-Type: text/html\r
-            Connection: close\r
-            \r
-            <html><body style="font-family:-apple-system;text-align:center;padding-top:100px;background:#111;color:#fff;">
-            <h2>Mirror connected to Google</h2>
-            <p>You can close this window and return to Mirror.</p>
-            </body></html>
-            """
-            _ = response.withCString { send(client, $0, strlen($0), 0) }
-            close(client)
-            close(sock)
+        let response = """
+        HTTP/1.1 200 OK\r
+        Content-Type: text/html\r
+        Connection: close\r
+        \r
+        <html><body style="font-family:-apple-system;text-align:center;padding-top:100px;background:#111;color:#fff;">
+        <h2>Mirror connected to Google</h2>
+        <p>You can close this window and return to Mirror.</p>
+        </body></html>
+        """
+        _ = response.withCString { send(client, $0, strlen($0), 0) }
+        close(client)
 
-            if !code.isEmpty {
-                DispatchQueue.main.async { self?.onCallback?(code) }
-            }
+        if !code.isEmpty {
+            DispatchQueue.main.async { self.onCallback?(code) }
         }
     }
 
-    func stop() {}
+    func stop() {
+        isRunning = false
+        if listenSocket >= 0 {
+            shutdown(listenSocket, SHUT_RDWR)
+            close(listenSocket)
+            listenSocket = -1
+        }
+    }
 }

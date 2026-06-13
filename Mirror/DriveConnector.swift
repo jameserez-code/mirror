@@ -1,26 +1,26 @@
 import Foundation
 
-// MARK: - Google Drive Connector
-
 class DriveConnector {
 
     private let driveAPIBase = "https://www.googleapis.com/drive/v3"
     private let uploadBase = "https://www.googleapis.com/upload/drive/v3"
     private let oauthManager = GoogleOAuthManager()
 
-    /// Upload a file to Google Drive. Requires `drive.file` scope.
-    /// Returns the file ID.
     func uploadFile(filePath: String, mimeType: String = "application/octet-stream", folderId: String? = nil) async throws -> String {
         let accessToken = try await oauthManager.getValidAccessToken()
         let fileURL = URL(fileURLWithPath: filePath)
         let fileData = try Data(contentsOf: fileURL)
         let filename = fileURL.lastPathComponent
 
+        guard let url = URL(string: "\(uploadBase)/files?uploadType=multipart") else {
+            throw ConnectorError.apiError("Invalid Drive upload URL")
+        }
+
         var metadata: [String: Any] = ["name": filename]
         if let folder = folderId { metadata["parents"] = [folder] }
 
         let boundary = "Boundary-\(UUID().uuidString)"
-        var request = URLRequest(url: URL(string: "\(uploadBase)/files?uploadType=multipart")!)
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("multipart/related; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -45,22 +45,22 @@ class DriveConnector {
         return fileId
     }
 
-    /// Download a file from Google Drive by file ID.
-    /// Returns the local file path where it was saved.
     func downloadFile(fileId: String, destinationDir: String) async throws -> String {
         let accessToken = try await oauthManager.getValidAccessToken()
 
-        // First, get filename
-        var metaRequest = URLRequest(url: URL(string: "\(driveAPIBase)/files/\(fileId)?fields=name")!)
+        guard let metaURL = URL(string: "\(driveAPIBase)/files/\(fileId)?fields=name") else {
+            throw ConnectorError.apiError("Invalid Drive metadata URL")
+        }
+        var metaRequest = URLRequest(url: metaURL)
         metaRequest.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-
         let (metaData, _) = try await URLSession.shared.data(for: metaRequest)
         let filename = (try? JSONSerialization.jsonObject(with: metaData) as? [String: Any])?["name"] as? String ?? "downloaded_file"
 
-        // Download content
-        var request = URLRequest(url: URL(string: "\(driveAPIBase)/files/\(fileId)?alt=media")!)
+        guard let downloadURL = URL(string: "\(driveAPIBase)/files/\(fileId)?alt=media") else {
+            throw ConnectorError.apiError("Invalid Drive download URL")
+        }
+        var request = URLRequest(url: downloadURL)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-
         let (fileData, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw ConnectorError.apiError("Drive download failed")
@@ -72,18 +72,22 @@ class DriveConnector {
         return destURL.path
     }
 
-    /// Search for files in Google Drive. Requires `drive.readonly` scope.
     func searchFiles(query: String, maxResults: Int = 10) async throws -> [DriveFile] {
         let accessToken = try await oauthManager.getValidAccessToken()
 
-        var components = URLComponents(string: "\(driveAPIBase)/files")!
+        guard var components = URLComponents(string: "\(driveAPIBase)/files") else {
+            throw ConnectorError.apiError("Invalid Drive search URL")
+        }
         components.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "pageSize", value: String(maxResults)),
             URLQueryItem(name: "fields", value: "files(id,name,mimeType,size,createdTime,webViewLink)")
         ]
+        guard let url = components.url else {
+            throw ConnectorError.apiError("Invalid Drive search URL components")
+        }
 
-        var request = URLRequest(url: components.url!)
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -104,18 +108,17 @@ class DriveConnector {
         }
     }
 
-    /// Share a file (make it accessible via link). Requires `drive.file` scope.
     func shareFile(fileId: String, role: String = "reader") async throws -> String {
         let accessToken = try await oauthManager.getValidAccessToken()
 
-        var request = URLRequest(url: URL(string: "\(driveAPIBase)/files/\(fileId)/permissions")!)
+        guard let url = URL(string: "\(driveAPIBase)/files/\(fileId)/permissions") else {
+            throw ConnectorError.apiError("Invalid Drive permissions URL")
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "role": role,
-            "type": "anyone"
-        ])
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["role": role, "type": "anyone"])
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
@@ -129,7 +132,7 @@ class DriveConnector {
     enum ConnectorError: Error, LocalizedError {
         case apiError(String)
         var errorDescription: String? {
-            switch self { case .apiError(let msg): return "Drive API error: \(msg)" }
+            switch self { case .apiError(let msg): return msg }
         }
     }
 }

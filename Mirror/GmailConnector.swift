@@ -17,32 +17,55 @@ class GmailConnector {
 
         let rawMessage = Data(message.utf8).base64URLEncodedString()
 
-        var request = URLRequest(url: URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/send")!)
+        guard let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/send") else {
+            throw ConnectorError.apiError("Invalid Gmail API URL")
+        }
+
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["raw": rawMessage])
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+        guard let http = response as? HTTPURLResponse else {
+            throw ConnectorError.apiError("No HTTP response")
+        }
+        if http.statusCode != 200 {
             let body = String(data: data, encoding: .utf8) ?? ""
-            throw ConnectorError.apiError("Gmail send failed: \(body)")
+            print("[Mirror Gmail] Send failed: HTTP \(http.statusCode) — \(body)")
+            throw ConnectorError.apiError("Gmail send failed (HTTP \(http.statusCode))")
         }
     }
 
     func search(query: String, maxResults: Int = 10) async throws -> [GmailMessage] {
         let accessToken = try await oauthManager.getValidAccessToken()
 
-        var components = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages")!
+        guard var components = URLComponents(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages") else {
+            throw ConnectorError.apiError("Invalid Gmail API URL")
+        }
         components.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "maxResults", value: String(maxResults))
         ]
 
-        var request = URLRequest(url: components.url!)
+        guard let url = components.url else {
+            throw ConnectorError.apiError("Invalid Gmail search URL")
+        }
+
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ConnectorError.apiError("No HTTP response from Gmail search")
+        }
+        if http.statusCode != 200 {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            print("[Mirror Gmail] Search failed: HTTP \(http.statusCode) — \(body)")
+            throw ConnectorError.apiError("Gmail search failed (HTTP \(http.statusCode))")
+        }
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let messages = json["messages"] as? [[String: Any]] else {
             return []
@@ -59,10 +82,21 @@ class GmailConnector {
     }
 
     private func fetchMessage(id: String, accessToken: String) async throws -> GmailMessage? {
-        var request = URLRequest(url: URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)?format=metadata&metadataHeaders=Subject&metadataHeaders=From")!)
+        let encodedId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        guard let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(encodedId)?format=metadata&metadataHeaders=Subject&metadataHeaders=From") else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { return nil }
+        if http.statusCode != 200 {
+            print("[Mirror Gmail] Fetch message \(id) failed: HTTP \(http.statusCode)")
+            return nil
+        }
+
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let payload = json["payload"] as? [String: Any],
               let headers = payload["headers"] as? [[String: Any]] else {

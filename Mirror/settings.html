@@ -485,6 +485,8 @@ function switchTab(name) {
 }
 
 function connectGoogle() {
+  var btn = document.getElementById('google-connect-btn');
+  if (btn) { btn.textContent = 'Connecting...'; btn.disabled = true; }
   bridge('integrations.connectGoogle');
 }
 
@@ -579,6 +581,7 @@ window.mirror = {
     if (!dot || !btn) return;
     dot.className = 'status-dot ' + (connected ? 'granted' : 'denied');
     btn.textContent = connected ? 'Disconnect' : 'Connect';
+    btn.disabled = false;
     btn.onclick = connected ? disconnectGoogle : connectGoogle;
   },
 
