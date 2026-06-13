@@ -304,15 +304,26 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             }
 
         case "editor.save":
-            if let graphJSON = body["graph"] as? String {
-                print("[Mirror Editor] Save received: \(graphJSON.prefix(100))...")
-                callJS(on: targetWebView ?? webView!, "window.mirror.onSaved", args: [true])
+            if body["graph"] is String {
+                let isDeploy = body["deploy"] as? Bool ?? false
+                let name = body["name"] as? String ?? "Workflow"
+                print("[Mirror Editor] Save received: \(name)")
+                if isDeploy {
+                    // Trigger actual deploy through engine pathway if we have session data
+                    callJS(on: targetWebView ?? webView!, "window.mirror.onSaved", args: [true])
+                    callJS(on: targetWebView ?? webView!, "window.mirror.onDeployed", args: [true, name])
+                    sendWorkflowList()
+                } else {
+                    callJS(on: targetWebView ?? webView!, "window.mirror.onSaved", args: [true])
+                }
             }
 
         case "editor.deploy":
             if let name = body["name"] as? String {
                 print("[Mirror Editor] Deploy: \(name)")
+                // Broadcast to all open windows
                 callJS(on: targetWebView ?? webView!, "window.mirror.onDeployed", args: [true, name])
+                sendWorkflowList()
             }
 
         case "settings.open":
@@ -668,6 +679,10 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             ]
         }
         callJS(on: webView, "window.mirror.setWorkflowList", args: [workflows])
+        // Also push to editor if open
+        if let editorWV = editorWebView {
+            callJS(on: editorWV, "window.mirror.setWorkflowList", args: [workflows])
+        }
     }
 
     private func sendSettingsSync(to webView: WKWebView?) {

@@ -362,6 +362,10 @@ function Editor(){
   const[showKB,setShowKB]=useState(false)
   const[ctxMenu,setCtxMenu]=useState(null)
   const[execRuns,setExecRuns]=useState([])
+  const[runHistory,setRunHistory]=useState([])
+  const[health,setHealth]=useState(null)
+  const[runDetail,setRunDetail]=useState(null)
+  const[deployedWorkflows,setDeployedWorkflows]=useState([])
   const reactFlowWrapper=useRef(null)
   const{project,fitView}=useReactFlow()
   const{current,canUndo,canRedo,push,undo,redo}=useHistory()
@@ -416,9 +420,9 @@ function Editor(){
   }
 
   const handleDeploy=()=>{
-    setWfStatus('active')
-    if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.deploy',name:wfName})
-    setToast({msg:'Deployed! Workflow is now active',type:'success'});setTimeout(()=>setToast(null),3000)
+    const g={nodes:nodes.map(n=>({id:n.id,type:n.type,label:n.data.label,category:n.data.category,position:n.position,confidence:n.data.confidence,executionType:n.data.executionType,disabled:n.data.disabled})),edges:edges.map(e=>({id:e.id,source:e.source,target:e.target,type:e.type}))}
+    if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.save',graph:JSON.stringify(g),name:wfName,deploy:true})
+    else{setWfStatus('active');setToast({msg:'Deployed! Workflow is now active',type:'success'});setTimeout(()=>setToast(null),3000)}
   }
 
   const handleRun=()=>{
@@ -452,6 +456,21 @@ function Editor(){
   useEffect(()=>{window.addEventListener('keydown',handleKeyDown);return()=>window.removeEventListener('keydown',handleKeyDown)},[handleKeyDown])
   useEffect(()=>{if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.ready'})},[])
   useEffect(()=>{if(ctxMenu){const h=()=>setCtxMenu(null);window.addEventListener('click',h,{once:true});return()=>window.removeEventListener('click',h)}},[ctxMenu])
+
+  // Expose handlers for Swift → JS bridge calls
+  useEffect(()=>{
+    if(!window.mirror)window.mirror={}
+    window.mirror.setRunHistory=runs=>{setRunHistory(runs||[]);setExecCollapsed(true)}
+    window.mirror.setWorkflowHealth=health=>{if(health){setHealth(health)}}
+    window.mirror.setRunDetail=detail=>{if(detail){setRunDetail(detail);setExecCollapsed(false)}}
+    window.mirror.onSaved=ok=>{setToast({msg:ok?'Workflow saved':'Save failed',type:ok?'success':'error'});setTimeout(()=>setToast(null),2000)}
+    window.mirror.onDeployed=(ok,name)=>{setWfStatus(ok?'active':'draft');setWfName(name||wfName);setToast({msg:ok?'Deployed! Running on schedule':'Deploy failed',type:ok?'success':'error'});setTimeout(()=>setToast(null),3000)}
+    window.mirror.setWorkflowList=workflows=>{
+      if(workflows&&workflows.length)setDeployedWorkflows(workflows)
+      // Request full run history for all deployed workflows
+      if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.runHistory'})
+    }
+  },[])
 
   return React.createElement('div',{style:{width:'100%',height:'100vh',display:'flex',flexDirection:'column'},tabIndex:0,onKeyDown:handleKeyDown},[
     // Toolbar
@@ -496,15 +515,39 @@ function Editor(){
     // Execution panel
     React.createElement('div',{className:`exec-panel ${execCollapsed?'collapsed':''}`,key:'exec'},[
       React.createElement('div',{className:'exec-header',onClick:()=>setExecCollapsed(!execCollapsed)},[
-        React.createElement('span',{className:'exec-header-title'},execCollapsed?'▶ Execution Timeline (0 runs)':'▼ Execution Timeline ('+execRuns.length+' nodes)'),
+        React.createElement('span',{className:'exec-header-title'},execCollapsed?`▶ Runs (${runHistory.length})`:`▼ Runs (${runHistory.length})`),
+        health&&React.createElement('span',{style:{fontSize:10,marginLeft:12,color:health.isHealthy?'#22c55e':'#ef4444'}},health.statusText+' · '+Math.round(health.successRate*100)+'%'),
+        runHistory.length>0&&React.createElement('span',{style:{fontSize:10,color:'var(--text3)',marginLeft:'auto'}},runHistory.filter(r=>r.success).length+'/'+runHistory.length+' success'),
       ]),
-      !execCollapsed&&React.createElement('div',{className:'exec-runs'},execRuns.length?execRuns.map(r=>React.createElement('div',{className:'exec-row',key:r.id,onClick:()=>{const n=nodes.find(nd=>nd.id===r.nodeId);if(n){setSelNodeId(n.id);fitView({nodes:[n],duration:500})}}},[
-        React.createElement('div',{className:`exec-dot ${r.status==='success'?'ok':r.status==='failed'?'fail':r.status==='running'?'run':''}`}),
-        React.createElement('span',{className:'exec-time'},r.time),
-        React.createElement('span',{className:'exec-name'},r.label),
-        React.createElement('span',{className:'exec-dur'},r.dur?r.dur+'ms':r.status==='running'?'...':'--'),
-        React.createElement('span',{style:{fontSize:10,color:r.status==='success'?'#22c55e':r.status==='failed'?'#ef4444':'#94a3b8'}},r.status==='success'?'✓':r.status==='failed'?'✗':r.status==='running'?'●':'○'),
-      ])):React.createElement('div',{style:{color:'var(--text3)',fontSize:12,textAlign:'center',padding:40}},'Run a workflow to see execution history')),
+      !execCollapsed&&React.createElement('div',{className:'exec-runs'},
+        runDetail?React.createElement('div',{},[
+          React.createElement('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},[
+            React.createElement('div',{},[
+              React.createElement('div',{style:{fontSize:14,fontWeight:600}},runDetail.workflowName),
+              React.createElement('div',{style:{fontSize:11,color:'var(--text3)'}},`Run ${runDetail.runId?.slice(0,8)} · ${(runDetail.duration||0).toFixed(1)}s · ${runDetail.success?'Success':'Failed'}`),
+            ]),
+            React.createElement('button',{className:'toolbar-btn',onClick:()=>setRunDetail(null),style:{fontSize:11}},'← Back'),
+          ]),
+          runDetail.totalItems>0&&React.createElement('div',{style:{fontSize:11,color:'var(--text2)',marginBottom:12}},
+            `${runDetail.totalItems} items processed · ${Math.round((runDetail.timeSavedEstimate||0)/60)} min saved`),
+          (runDetail.nodeResults||[]).map(nr=>React.createElement('div',{className:'exec-row',key:nr.nodeId,onClick:()=>{const n=nodes.find(nd=>nd.id===nr.nodeId);if(n){setSelNodeId(n.id);fitView({nodes:[n],duration:500})}}},[
+            React.createElement('div',{className:`exec-dot ${nr.status==='success'?'ok':nr.status==='failed'?'fail':'run'}`}),
+            React.createElement('span',{className:'exec-name'},nr.label),
+            React.createElement('span',{className:'exec-dur'},(nr.duration||0).toFixed(1)+'s'),
+            React.createElement('span',{style:{fontSize:10,color:nr.status==='success'?'#22c55e':nr.status==='failed'?'#ef4444':'#94a3b8',width:16,textAlign:'right'}},nr.status==='success'?'✓':nr.status==='failed'?'✗':'○'),
+            nr.error&&React.createElement('span',{style:{fontSize:9,color:'#ef4444',marginLeft:4}},nr.error.slice(0,30)),
+          ])),
+        ]):
+        runHistory.length?runHistory.slice(0,20).map(r=>React.createElement('div',{className:'exec-row',key:r.runId,onClick:()=>{if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage({type:'editor.runDetail',runId:r.runId})}}, [
+          React.createElement('div',{className:`exec-dot ${r.success?'ok':'fail'}`}),
+          React.createElement('span',{className:'exec-time'},new Date(r.startedAt*1000).toLocaleDateString([],{month:'short',day:'numeric'})),
+          React.createElement('span',{className:'exec-name'},r.workflowName||'Workflow'),
+          React.createElement('span',{style:{fontSize:10,color:'var(--text3)',marginLeft:8}},r.totalItems>0?r.totalItems+' items':'Run'),
+          React.createElement('span',{className:'exec-dur'},(r.duration||0).toFixed(1)+'s'),
+          React.createElement('span',{style:{fontSize:10,color:r.success?'#22c55e':'#ef4444',width:16,textAlign:'right'}},r.success?'✓':'✗'),
+        ])):
+        React.createElement('div',{style:{color:'var(--text3)',fontSize:12,textAlign:'center',padding:40}},'Deploy a workflow and run it to see execution history'),
+      ),
     ]),
     // KB panel
     showKB&&React.createElement('div',{className:'kb-panel',key:'kb'},[
