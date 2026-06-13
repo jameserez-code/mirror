@@ -77,6 +77,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
 .cv-node.ai .cv-node-header{fill:rgba(168,85,247,0.08)}
 .cv-node.data .cv-node-header{fill:rgba(99,102,241,0.08)}
 .cv-node.logic .cv-node-header{fill:rgba(245,158,11,0.08)}
+.cv-node.calendar .cv-node-header{fill:rgba(14,165,233,0.08)}
+.cv-node.database .cv-node-header{fill:rgba(20,184,166,0.08)}
+.cv-node.finance .cv-node-header{fill:rgba(16,185,129,0.08)}
+.cv-node.social .cv-node-header{fill:rgba(236,72,153,0.08)}
+.cv-node.cms .cv-node-header{fill:rgba(249,115,22,0.08)}
+.cv-node.media .cv-node-header{fill:rgba(217,70,239,0.08)}
+.cv-node.devtools .cv-node-header{fill:rgba(113,113,122,0.08)}
+.cv-node.storage .cv-node-header{fill:rgba(120,113,108,0.08)}
+.cv-node.monitor .cv-node-header{fill:rgba(239,68,68,0.08)}
+.cv-node.rss .cv-node-header{fill:rgba(249,115,22,0.08)}
+.cv-node.weather .cv-node-header{fill:rgba(14,165,233,0.08)}
 .cv-edge{stroke:var(--t3);stroke-width:2;fill:none;transition:stroke var(--transition)}
 .cv-edge:hover{stroke:var(--t2)}
 .cv-handle{fill:var(--accent);stroke:var(--bg2);stroke-width:2;cursor:crosshair;r:5;transition:r var(--transition),opacity var(--transition)}
@@ -430,10 +441,90 @@ var edNodeTypes={
     {t:'fill_form',l:'Fill Form',i:'📝',d:'Fill web form fields'},
     {t:'scroll_page',l:'Scroll Page',i:'📜',d:'Scroll window'},
     {t:'take_screenshot',l:'Screenshot',i:'📸',d:'Capture screen'}
+  ]},
+  calendar:{color:'#0ea5e9',items:[
+    {t:'gcal_create',l:'Calendar Create',i:'📅',d:'Create Google Calendar event',p:'google'},
+    {t:'gcal_read',l:'Calendar Read',i:'📆',d:'Read calendar events',p:'google'},
+    {t:'gcal_update',l:'Calendar Update',i:'✏',d:'Update calendar event',p:'google'},
+    {t:'gcal_delete',l:'Calendar Delete',i:'🗑',d:'Delete calendar event',p:'google'}
+  ]},
+  database:{color:'#14b8a6',items:[
+    {t:'pg_query',l:'PostgreSQL Query',i:'🐘',d:'Run Postgres SQL query',p:'postgres'},
+    {t:'mysql_query',l:'MySQL Query',i:'🐬',d:'Run MySQL SQL query',p:'mysql'},
+    {t:'mongo_find',l:'MongoDB Find',i:'🍃',d:'Query MongoDB collection',p:'mongodb'},
+    {t:'airtable_read',l:'Airtable Read',i:'📋',d:'Read Airtable records',p:'airtable'},
+    {t:'airtable_write',l:'Airtable Write',i:'✏',d:'Write Airtable records',p:'airtable'},
+    {t:'notion_query',l:'Notion Query',i:'N',d:'Query Notion database',p:'notion'},
+    {t:'notion_create',l:'Notion Create',i:'📝',d:'Create Notion page',p:'notion'}
+  ]},
+  finance:{color:'#10b981',items:[
+    {t:'stripe_invoice',l:'Stripe Invoice',i:'💳',d:'Create Stripe invoice',p:'stripe'},
+    {t:'stripe_customer',l:'Stripe Customer',i:'👤',d:'Manage Stripe customer',p:'stripe'},
+    {t:'quickbooks_invoice',l:'QB Invoice',i:'📋',d:'Create QuickBooks invoice',p:'quickbooks'},
+    {t:'crypto_price',l:'Crypto Price',i:'₿',d:'Fetch cryptocurrency price'},
+    {t:'exchange_rate',l:'Exchange Rate',i:'💱',d:'Fetch currency exchange rate'}
+  ]},
+  social:{color:'#ec4899',items:[
+    {t:'twitter_post',l:'Tweet',i:'🐦',d:'Post tweet to X/Twitter',p:'twitter'},
+    {t:'linkedin_post',l:'LinkedIn Post',i:'💼',d:'Post to LinkedIn',p:'linkedin'},
+    {t:'instagram_post',l:'Instagram Post',i:'📷',d:'Post to Instagram',p:'instagram'},
+    {t:'discord_msg',l:'Discord Message',i:'💬',d:'Send Discord message',p:'discord'},
+    {t:'telegram_msg',l:'Telegram Message',i:'✈',d:'Send Telegram message',p:'telegram'},
+    {t:'whatsapp_msg',l:'WhatsApp',i:'💭',d:'Send WhatsApp message',p:'whatsapp'}
+  ]},
+  cms:{color:'#f97316',items:[
+    {t:'wordpress_post',l:'WordPress Post',i:'W',d:'Publish WordPress post',p:'wordpress'},
+    {t:'webflow_item',l:'Webflow CMS',i:'🌊',d:'Manage Webflow CMS items',p:'webflow'},
+    {t:'shopify_product',l:'Shopify Product',i:'🛍',d:'Manage Shopify products',p:'shopify'},
+    {t:'hubspot_contact',l:'HubSpot Contact',i:'⚡',d:'Manage HubSpot contacts',p:'hubspot'}
+  ]},
+  media:{color:'#d946ef',items:[
+    {t:'pdf_generate',l:'Generate PDF',i:'📄',d:'Generate PDF document'},
+    {t:'pdf_extract',l:'Extract PDF Text',i:'🔍',d:'Extract text from PDF'},
+    {t:'pdf_merge',l:'Merge PDFs',i:'📑',d:'Combine PDF files'},
+    {t:'image_resize',l:'Resize Image',i:'🖼',d:'Resize/compress image'},
+    {t:'image_ocr',l:'OCR Image',i:'👁',d:'Extract text from image'},
+    {t:'video_thumbnail',l:'Video Thumbnail',i:'🎬',d:'Generate video thumbnail'},
+    {t:'ffmpeg_transcode',l:'Transcode Video',i:'🎥',d:'Convert video format'}
+  ]},
+  devtools:{color:'#71717a',items:[
+    {t:'code_python',l:'Run Python',i:'🐍',d:'Execute Python script'},
+    {t:'code_javascript',l:'Run JavaScript',i:'JS',d:'Execute JavaScript'},
+    {t:'code_bash',l:'Run Bash',i:'>$',d:'Execute shell command'},
+    {t:'git_commit',l:'Git Commit',i:'⎇',d:'Create git commit',p:'github'},
+    {t:'github_issue',l:'GitHub Issue',i:'🐙',d:'Create GitHub issue',p:'github'},
+    {t:'github_pr',l:'GitHub PR',i:'🔀',d:'Create pull request',p:'github'},
+    {t:'jira_ticket',l:'Jira Ticket',i:'🎫',d:'Create Jira ticket',p:'jira'},
+    {t:'linear_issue',l:'Linear Issue',i:'L',d:'Create Linear issue',p:'linear'}
+  ]},
+  storage:{color:'#78716c',items:[
+    {t:'s3_upload',l:'S3 Upload',i:'🪣',d:'Upload to AWS S3',p:'aws'},
+    {t:'s3_download',l:'S3 Download',i:'⬇',d:'Download from S3',p:'aws'},
+    {t:'dropbox_upload',l:'Dropbox Upload',i:'📦',d:'Upload to Dropbox',p:'dropbox'},
+    {t:'dropbox_download',l:'Dropbox Download',i:'📥',d:'Download from Dropbox',p:'dropbox'},
+    {t:'ftp_upload',l:'FTP Upload',i:'📤',d:'Upload via FTP/SFTP'},
+    {t:'ftp_download',l:'FTP Download',i:'📥',d:'Download via FTP/SFTP'}
+  ]},
+  monitor:{color:'#ef4444',items:[
+    {t:'uptime_check',l:'Uptime Check',i:'✅',d:'Check URL availability'},
+    {t:'error_alert',l:'Error Alert',i:'🚨',d:'Send alert on error'},
+    {t:'metric_push',l:'Push Metric',i:'📈',d:'Push metric to dashboard'},
+    {t:'log_shipper',l:'Log Shipper',i:'📋',d:'Forward logs to service'},
+    {t:'health_check',l:'Health Check',i:'💚',d:'Check service health'}
+  ]},
+  rss:{color:'#f97316',items:[
+    {t:'rss_fetch',l:'RSS Read',i:'📡',d:'Fetch RSS feed entries'},
+    {t:'rss_filter',l:'RSS Filter',i:'🔍',d:'Filter RSS by keywords'},
+    {t:'rss_notify',l:'RSS Notify',i:'🔔',d:'Notify on new RSS items'}
+  ]},
+  weather:{color:'#0ea5e9',items:[
+    {t:'weather_current',l:'Current Weather',i:'🌤',d:'Get current weather'},
+    {t:'weather_forecast',l:'Weather Forecast',i:'🌦',d:'Get weather forecast'},
+    {t:'weather_alert',l:'Weather Alert',i:'⚠',d:'Alert on severe weather'}
   ]}
 };
 
-var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop'};
+var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop',calendar:'Calendar',database:'Databases',finance:'Finance',social:'Social & Chat',cms:'CMS & E-Commerce',media:'Media & PDF',devtools:'Dev Tools',storage:'Cloud Storage',monitor:'Monitoring',rss:'RSS & Feeds',weather:'Weather'};
 
 // Centralized action → {category, icon, label} mapper
 function getNodeInfo(a){
@@ -450,7 +541,29 @@ function getNodeInfo(a){
     send_email:{c:'action',i:'✉',l:'Send Email'},sms_send:{c:'action',i:'📱',l:'Send SMS'},notify_user:{c:'action',i:'🔔',l:'Notify User'},create_file:{c:'action',i:'📄',l:'Create File'},delete_file:{c:'action',i:'🗑',l:'Delete File'},run_script:{c:'action',i:'⚙',l:'Run Script'},screenshot:{c:'action',i:'📸',l:'Screenshot'},print:{c:'action',i:'🖨',l:'Print'},
     open_app:{c:'desktop',i:'📱',l:'Open App'},open_application:{c:'desktop',i:'📱',l:'Open App'},type_text:{c:'desktop',i:'⌨',l:'Type Text'},click_element:{c:'desktop',i:'🖱',l:'Click Element'},click_ui_element:{c:'desktop',i:'🖱',l:'Click UI'},click:{c:'desktop',i:'🖱',l:'Click'},press_shortcut:{c:'desktop',i:'⌘',l:'Press Shortcut'},paste_text:{c:'desktop',i:'📋',l:'Paste'},copy_to_clipboard:{c:'desktop',i:'📋',l:'Copy'},navigate_url:{c:'desktop',i:'🔗',l:'Navigate'},fill_form:{c:'desktop',i:'📝',l:'Fill Form'},scroll_page:{c:'desktop',i:'📜',l:'Scroll'},take_screenshot:{c:'desktop',i:'📸',l:'Screenshot'},
     upload_file:{c:'drive',i:'⬆',l:'Upload File'},file_read:{c:'drive',i:'📄',l:'Read File'},file_write:{c:'drive',i:'💾',l:'Write File'},download_attachment:{c:'drive',i:'⬇',l:'Download'},
-    open_url:{c:'desktop',i:'🔗',l:'Open URL'},summarize:{c:'ai',i:'📝',l:'Summarize'},classify:{c:'ai',i:'🏷',l:'Classify'},filter:{c:'data',i:'🔍',l:'Filter'},transform:{c:'data',i:'⚡',l:'Transform'},branch:{c:'logic',i:'⑂',l:'Branch'}
+     open_url:{c:'desktop',i:'🔗',l:'Open URL'},summarize:{c:'ai',i:'📝',l:'Summarize'},classify:{c:'ai',i:'🏷',l:'Classify'},filter:{c:'data',i:'🔍',l:'Filter'},transform:{c:'data',i:'⚡',l:'Transform'},branch:{c:'logic',i:'⑂',l:'Branch'},
+    // Calendar
+    gcal_create:{c:'calendar',i:'📅',l:'Calendar Create'},gcal_read:{c:'calendar',i:'📆',l:'Calendar Read'},gcal_update:{c:'calendar',i:'✏',l:'Calendar Update'},gcal_delete:{c:'calendar',i:'🗑',l:'Calendar Delete'},
+    // Database
+    pg_query:{c:'database',i:'🐘',l:'PostgreSQL Query'},mysql_query:{c:'database',i:'🐬',l:'MySQL Query'},mongo_find:{c:'database',i:'🍃',l:'MongoDB Find'},airtable_read:{c:'database',i:'📋',l:'Airtable Read'},airtable_write:{c:'database',i:'✏',l:'Airtable Write'},notion_query:{c:'database',i:'N',l:'Notion Query'},notion_create:{c:'database',i:'📝',l:'Notion Create'},
+    // Finance
+    stripe_invoice:{c:'finance',i:'💳',l:'Stripe Invoice'},stripe_customer:{c:'finance',i:'👤',l:'Stripe Customer'},quickbooks_invoice:{c:'finance',i:'📋',l:'QB Invoice'},crypto_price:{c:'finance',i:'₿',l:'Crypto Price'},exchange_rate:{c:'finance',i:'💱',l:'Exchange Rate'},
+    // Social
+    twitter_post:{c:'social',i:'🐦',l:'Tweet'},linkedin_post:{c:'social',i:'💼',l:'LinkedIn Post'},instagram_post:{c:'social',i:'📷',l:'Instagram Post'},discord_msg:{c:'social',i:'💬',l:'Discord Message'},telegram_msg:{c:'social',i:'✈',l:'Telegram Message'},whatsapp_msg:{c:'social',i:'💭',l:'WhatsApp'},
+    // CMS
+    wordpress_post:{c:'cms',i:'W',l:'WordPress Post'},webflow_item:{c:'cms',i:'🌊',l:'Webflow CMS'},shopify_product:{c:'cms',i:'🛍',l:'Shopify Product'},hubspot_contact:{c:'cms',i:'⚡',l:'HubSpot Contact'},
+    // Media
+    pdf_generate:{c:'media',i:'📄',l:'Generate PDF'},pdf_extract:{c:'media',i:'🔍',l:'Extract PDF Text'},pdf_merge:{c:'media',i:'📑',l:'Merge PDFs'},image_resize:{c:'media',i:'🖼',l:'Resize Image'},image_ocr:{c:'media',i:'👁',l:'OCR Image'},video_thumbnail:{c:'media',i:'🎬',l:'Video Thumbnail'},ffmpeg_transcode:{c:'media',i:'🎥',l:'Transcode Video'},
+    // Dev Tools
+    code_python:{c:'devtools',i:'🐍',l:'Run Python'},code_javascript:{c:'devtools',i:'JS',l:'Run JavaScript'},code_bash:{c:'devtools',i:'>$',l:'Run Bash'},git_commit:{c:'devtools',i:'⎇',l:'Git Commit'},github_issue:{c:'devtools',i:'🐙',l:'GitHub Issue'},github_pr:{c:'devtools',i:'🔀',l:'GitHub PR'},jira_ticket:{c:'devtools',i:'🎫',l:'Jira Ticket'},linear_issue:{c:'devtools',i:'L',l:'Linear Issue'},
+    // Storage
+    s3_upload:{c:'storage',i:'🪣',l:'S3 Upload'},s3_download:{c:'storage',i:'⬇',l:'S3 Download'},dropbox_upload:{c:'storage',i:'📦',l:'Dropbox Upload'},dropbox_download:{c:'storage',i:'📥',l:'Dropbox Download'},ftp_upload:{c:'storage',i:'📤',l:'FTP Upload'},ftp_download:{c:'storage',i:'📥',l:'FTP Download'},
+    // Monitoring
+    uptime_check:{c:'monitor',i:'✅',l:'Uptime Check'},error_alert:{c:'monitor',i:'🚨',l:'Error Alert'},metric_push:{c:'monitor',i:'📈',l:'Push Metric'},log_shipper:{c:'monitor',i:'📋',l:'Log Shipper'},health_check:{c:'monitor',i:'💚',l:'Health Check'},
+    // RSS
+    rss_fetch:{c:'rss',i:'📡',l:'RSS Read'},rss_filter:{c:'rss',i:'🔍',l:'RSS Filter'},rss_notify:{c:'rss',i:'🔔',l:'RSS Notify'},
+    // Weather
+    weather_current:{c:'weather',i:'🌤',l:'Current Weather'},weather_forecast:{c:'weather',i:'🌦',l:'Weather Forecast'},weather_alert:{c:'weather',i:'⚠',l:'Weather Alert'}
   };
   var def=all[a]||{c:'action',i:'⬡',l:a};
   return {category:def.c,icon:def.i,label:def.l,color:edNodeTypes[def.c]?edNodeTypes[def.c].color:'#6b7280'};
@@ -747,7 +860,7 @@ function renderEditor(){
   // Nodes
   editNodes.forEach(function(n){
     var cat=n.category||'action';
-    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280'};
+    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280',calendar:'#0ea5e9',database:'#14b8a6',finance:'#10b981',social:'#ec4899',cms:'#f97316',media:'#d946ef',devtools:'#71717a',storage:'#78716c',monitor:'#ef4444',rss:'#f97316',weather:'#0ea5e9'};
     var c=colors[cat]||'#6b7280';
     var sel=selNodeIds.has(n.id);
     // Truncate text to fit in 240px node
