@@ -69,6 +69,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
 .cv-node.decision .cv-node-header{fill:rgba(245,158,11,0.08)}
 .cv-node.action .cv-node-header{fill:rgba(34,197,94,0.08)}
 .cv-node.desktop .cv-node-header{fill:rgba(100,100,110,0.08)}
+.cv-node.gmail .cv-node-header{fill:rgba(59,130,246,0.08)}
+.cv-node.sheets .cv-node-header{fill:rgba(34,197,94,0.08)}
+.cv-node.drive .cv-node-header{fill:rgba(6,182,212,0.08)}
+.cv-node.slack .cv-node-header{fill:rgba(74,21,75,0.15)}
+.cv-node.http .cv-node-header{fill:rgba(139,92,246,0.08)}
+.cv-node.ai .cv-node-header{fill:rgba(168,85,247,0.08)}
+.cv-node.data .cv-node-header{fill:rgba(99,102,241,0.08)}
+.cv-node.logic .cv-node-header{fill:rgba(245,158,11,0.08)}
 .cv-edge{stroke:var(--t3);stroke-width:2;fill:none;transition:stroke var(--transition)}
 .cv-edge:hover{stroke:var(--t2)}
 .cv-handle{fill:var(--accent);stroke:var(--bg2);stroke-width:2;cursor:crosshair;r:5;transition:r var(--transition),opacity var(--transition)}
@@ -314,7 +322,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
 <script>
 // ═══════════ STATE ═══════════
 var state='idle',currentWorkflow=null,wfId='';
-var editNodes=[],editEdges=[],selNodeIdss=new Set(),clipboard=[],undoStack=[],undoIdx=-1;
+var editNodes=[],editEdges=[],selNodeIds=new Set(),clipboard=[],undoStack=[],undoIdx=-1;
 var connecting=null,dragNode=null,dragOff={x:0,y:0},dragMulti=null;
 var panOff={x:0,y:0},panning=false,panStart={x:0,y:0},zoom=1;
 var deployedWorkflows=[],runHistory=[];
@@ -333,13 +341,120 @@ function addNode(type,label,icon,category,x,y){var n={id:'n'+Date.now(),type:typ
 
 function pushUndoDelayed(){clearTimeout(window._undoTimer);window._undoTimer=setTimeout(saveUndo,200)}
 var edNodeTypes={
-  trigger:{color:'#eab308',items:[{t:'schedule_trigger',l:'Schedule',i:'⏰'},{t:'manual_trigger',l:'Manual',i:'👆'}]},
-  source:{color:'#3b82f6',items:[{t:'gmail_search',l:'Gmail Search',i:'G'},{t:'gmail_fetch',l:'Gmail Fetch',i:'M'},{t:'spreadsheet_read',l:'Sheets Read',i:'S'},{t:'file_read',l:'Read File',i:'📄'}]},
-  transform:{color:'#8b5cf6',items:[{t:'extract_fields',l:'Extract Fields',i:'✂'},{t:'summarize',l:'Summarize',i:'📝'},{t:'filter',l:'Filter',i:'🔍'},{t:'classify',l:'Classify',i:'🏷'}]},
-  decision:{color:'#f59e0b',items:[{t:'condition',l:'If Condition',i:'?'},{t:'branch',l:'Branch',i:'⑂'}]},
-  action:{color:'#22c55e',items:[{t:'send_email',l:'Send Email',i:'✉'},{t:'append_sheet_row',l:'Append Row',i:'📊'},{t:'slack_post',l:'Slack Post',i:'#'},{t:'notify_user',l:'Notify',i:'🔔'}]},
-  desktop:{color:'#6b7280',items:[{t:'open_application',l:'Open App',i:'📱'},{t:'type_text',l:'Type Text',i:'⌨'},{t:'click_ui_element',l:'Click UI',i:'🖱'}]}
+  trigger:{color:'#eab308',items:[
+    {t:'schedule_trigger',l:'Schedule',i:'⏰',d:'Run on a cron schedule'},
+    {t:'manual_trigger',l:'Manual Trigger',i:'👆',d:'Trigger manually from dashboard'},
+    {t:'webhook_trigger',l:'Webhook',i:'🪝',d:'HTTP endpoint trigger'},
+    {t:'file_watcher',l:'File Watcher',i:'📁',d:'Trigger on file added/changed'},
+    {t:'email_received',l:'Email Received',i:'📧',d:'Trigger on new Gmail message'}
+  ]},
+  gmail:{color:'#3b82f6',items:[
+    {t:'gmail_search',l:'Gmail Search',i:'G',d:'Search Gmail inbox with query',p:'gmail'},
+    {t:'gmail_fetch',l:'Gmail Fetch',i:'M',d:'Fetch specific email by ID',p:'gmail'},
+    {t:'gmail_send',l:'Gmail Send',i:'✉',d:'Send email via Gmail API',p:'gmail'},
+    {t:'gmail_draft',l:'Gmail Draft',i:'📝',d:'Create email draft',p:'gmail'},
+    {t:'gmail_label',l:'Gmail Label',i:'🏷',d:'Apply label to email',p:'gmail'}
+  ]},
+  sheets:{color:'#22c55e',items:[
+    {t:'sheets_read',l:'Sheets Read',i:'S',d:'Read range from sheet',p:'sheets'},
+    {t:'sheets_append',l:'Sheets Append',i:'📊',d:'Append row to sheet',p:'sheets'},
+    {t:'sheets_create',l:'Sheets Create',i:'📋',d:'Create new spreadsheet',p:'sheets'},
+    {t:'sheets_update',l:'Sheets Update',i:'✏',d:'Update specific cell values',p:'sheets'},
+    {t:'sheets_format',l:'Sheets Format',i:'🎨',d:'Apply formatting to range',p:'sheets'}
+  ]},
+  drive:{color:'#06b6d4',items:[
+    {t:'drive_search',l:'Drive Search',i:'D',d:'Search files in Drive',p:'drive'},
+    {t:'drive_upload',l:'Drive Upload',i:'⬆',d:'Upload file to Drive',p:'drive'},
+    {t:'drive_download',l:'Drive Download',i:'⬇',d:'Download file from Drive',p:'drive'},
+    {t:'drive_share',l:'Drive Share',i:'🔗',d:'Share file with permissions',p:'drive'}
+  ]},
+  slack:{color:'#4A154B',items:[
+    {t:'slack_post',l:'Slack Post',i:'#',d:'Post message to channel',p:'slack'},
+    {t:'slack_upload',l:'Slack Upload',i:'📎',d:'Upload file to Slack',p:'slack'},
+    {t:'slack_fetch',l:'Slack Fetch',i:'📥',d:'Fetch channel history',p:'slack'},
+    {t:'slack_reply',l:'Slack Reply',i:'💬',d:'Reply in thread',p:'slack'}
+  ]},
+  http:{color:'#8b5cf6',items:[
+    {t:'http_request',l:'HTTP Request',i:'🌐',d:'Make HTTP API call'},
+    {t:'http_poll',l:'HTTP Poll',i:'🔄',d:'Poll endpoint on interval'},
+    {t:'http_webhook',l:'HTTP Webhook',i:'📡',d:'Receive webhook data'}
+  ]},
+  ai:{color:'#a855f7',items:[
+    {t:'ai_summarize',l:'AI Summarize',i:'📝',d:'Summarize text with AI'},
+    {t:'ai_classify',l:'AI Classify',i:'🏷',d:'Categorize content with AI'},
+    {t:'ai_extract',l:'AI Extract',i:'🔮',d:'Extract structured data with AI'},
+    {t:'ai_translate',l:'AI Translate',i:'🌍',d:'Translate text between languages'},
+    {t:'ai_sentiment',l:'AI Sentiment',i:'💭',d:'Analyze text sentiment'}
+  ]},
+  data:{color:'#6366f1',items:[
+    {t:'extract_fields',l:'Extract Fields',i:'✂',d:'Extract structured fields'},
+    {t:'map_fields',l:'Map Fields',i:'↔',d:'Rename/reorder fields'},
+    {t:'parse_json',l:'Parse JSON',i:'{}',d:'Parse JSON string to fields'},
+    {t:'parse_csv',l:'Parse CSV',i:'📊',d:'Parse CSV to rows/columns'},
+    {t:'merge_data',l:'Merge Data',i:'⨁',d:'Combine two data sources'},
+    {t:'split_data',l:'Split Data',i:'🔀',d:'Split data into batches'},
+    {t:'sort_data',l:'Sort Data',i:'⇅',d:'Sort data by field'},
+    {t:'deduplicate',l:'Deduplicate',i:'⊟',d:'Remove duplicate rows'},
+    {t:'aggregate',l:'Aggregate',i:'Σ',d:'Group and aggregate data'},
+    {t:'pivot',l:'Pivot Table',i:'⊞',d:'Pivot rows to columns'}
+  ]},
+  logic:{color:'#f59e0b',items:[
+    {t:'condition',l:'If Condition',i:'?',d:'Branch on expression'},
+    {t:'switch',l:'Switch',i:'⑂',d:'Multi-way branch'},
+    {t:'loop',l:'For Each',i:'🔁',d:'Iterate over items'},
+    {t:'approval_required',l:'Approval',i:'✓',d:'Pause for human approval'},
+    {t:'wait',l:'Wait',i:'⏱',d:'Pause for duration'},
+    {t:'random',l:'Random',i:'🎲',d:'Generate random value'},
+    {t:'counter',l:'Counter',i:'#️⃣',d:'Increment/decrement counter'},
+    {t:'set_variable',l:'Set Variable',i:'📌',d:'Store value in variable'},
+    {t:'get_variable',l:'Get Variable',i:'📍',d:'Retrieve stored variable'}
+  ]},
+  action:{color:'#22c55e',items:[
+    {t:'send_email',l:'Send Email',i:'✉',d:'Send via Gmail',p:'gmail'},
+    {t:'sms_send',l:'Send SMS',i:'📱',d:'Send text message',p:'twilio'},
+    {t:'notify_user',l:'Notify User',i:'🔔',d:'Send desktop notification'},
+    {t:'create_file',l:'Create File',i:'📄',d:'Write file to disk'},
+    {t:'delete_file',l:'Delete File',i:'🗑',d:'Delete file from disk'},
+    {t:'run_script',l:'Run Script',i:'⚙',d:'Execute shell command'},
+    {t:'screenshot',l:'Screenshot',i:'📸',d:'Capture screen region'},
+    {t:'print',l:'Print',i:'🖨',d:'Print document'}
+  ]},
+  desktop:{color:'#6b7280',items:[
+    {t:'open_app',l:'Open App',i:'📱',d:'Launch application'},
+    {t:'type_text',l:'Type Text',i:'⌨',d:'Simulate keystrokes'},
+    {t:'click_element',l:'Click Element',i:'🖱',d:'Click at coordinates'},
+    {t:'press_shortcut',l:'Press Shortcut',i:'⌘',d:'Press keyboard shortcut'},
+    {t:'paste_text',l:'Paste Text',i:'📋',d:'Paste from clipboard'},
+    {t:'copy_to_clipboard',l:'Copy to Clipboard',i:'📋',d:'Copy text to clipboard'},
+    {t:'navigate_url',l:'Navigate URL',i:'🔗',d:'Open URL in browser'},
+    {t:'fill_form',l:'Fill Form',i:'📝',d:'Fill web form fields'},
+    {t:'scroll_page',l:'Scroll Page',i:'📜',d:'Scroll window'},
+    {t:'take_screenshot',l:'Screenshot',i:'📸',d:'Capture screen'}
+  ]}
 };
+
+var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop'};
+
+// Centralized action → {category, icon, label} mapper
+function getNodeInfo(a){
+  var all={
+    schedule_trigger:{c:'trigger',i:'⏰',l:'Schedule'},manual_trigger:{c:'trigger',i:'👆',l:'Manual Trigger'},webhook_trigger:{c:'trigger',i:'🪝',l:'Webhook'},file_watcher:{c:'trigger',i:'📁',l:'File Watcher'},email_received:{c:'trigger',i:'📧',l:'Email Received'},
+    gmail_search:{c:'gmail',i:'G',l:'Gmail Search'},gmail_fetch:{c:'gmail',i:'M',l:'Gmail Fetch'},gmail_send:{c:'gmail',i:'✉',l:'Gmail Send'},gmail_draft:{c:'gmail',i:'📝',l:'Gmail Draft'},gmail_label:{c:'gmail',i:'🏷',l:'Gmail Label'},
+    sheets_read:{c:'sheets',i:'S',l:'Sheets Read'},sheets_append:{c:'sheets',i:'📊',l:'Sheets Append'},sheets_create:{c:'sheets',i:'📋',l:'Sheets Create'},sheets_update:{c:'sheets',i:'✏',l:'Sheets Update'},sheets_format:{c:'sheets',i:'🎨',l:'Sheets Format'},
+    drive_search:{c:'drive',i:'D',l:'Drive Search'},drive_upload:{c:'drive',i:'⬆',l:'Drive Upload'},drive_download:{c:'drive',i:'⬇',l:'Drive Download'},drive_share:{c:'drive',i:'🔗',l:'Drive Share'},
+    slack_post:{c:'slack',i:'#',l:'Slack Post'},slack_upload:{c:'slack',i:'📎',l:'Slack Upload'},slack_fetch:{c:'slack',i:'📥',l:'Slack Fetch'},slack_reply:{c:'slack',i:'💬',l:'Slack Reply'},
+    http_request:{c:'http',i:'🌐',l:'HTTP Request'},http_poll:{c:'http',i:'🔄',l:'HTTP Poll'},http_webhook:{c:'http',i:'📡',l:'HTTP Webhook'},web_request:{c:'http',i:'🌐',l:'HTTP Request'},
+    ai_summarize:{c:'ai',i:'📝',l:'AI Summarize'},ai_classify:{c:'ai',i:'🏷',l:'AI Classify'},ai_extract:{c:'ai',i:'🔮',l:'AI Extract'},ai_translate:{c:'ai',i:'🌍',l:'AI Translate'},ai_sentiment:{c:'ai',i:'💭',l:'AI Sentiment'},
+    extract_fields:{c:'data',i:'✂',l:'Extract Fields'},map_fields:{c:'data',i:'↔',l:'Map Fields'},parse_json:{c:'data',i:'{}',l:'Parse JSON'},parse_csv:{c:'data',i:'📊',l:'Parse CSV'},merge_data:{c:'data',i:'⨁',l:'Merge Data'},split_data:{c:'data',i:'🔀',l:'Split Data'},sort_data:{c:'data',i:'⇅',l:'Sort Data'},deduplicate:{c:'data',i:'⊟',l:'Deduplicate'},aggregate:{c:'data',i:'Σ',l:'Aggregate'},pivot:{c:'data',i:'⊞',l:'Pivot Table'},
+    condition:{c:'logic',i:'?',l:'If Condition'},switch:{c:'logic',i:'⑂',l:'Switch'},loop:{c:'logic',i:'🔁',l:'For Each'},approval_required:{c:'logic',i:'✓',l:'Approval'},wait:{c:'logic',i:'⏱',l:'Wait'},random:{c:'logic',i:'🎲',l:'Random'},counter:{c:'logic',i:'#️⃣',l:'Counter'},set_variable:{c:'logic',i:'📌',l:'Set Variable'},get_variable:{c:'logic',i:'📍',l:'Get Variable'},
+    send_email:{c:'action',i:'✉',l:'Send Email'},sms_send:{c:'action',i:'📱',l:'Send SMS'},notify_user:{c:'action',i:'🔔',l:'Notify User'},create_file:{c:'action',i:'📄',l:'Create File'},delete_file:{c:'action',i:'🗑',l:'Delete File'},run_script:{c:'action',i:'⚙',l:'Run Script'},screenshot:{c:'action',i:'📸',l:'Screenshot'},print:{c:'action',i:'🖨',l:'Print'},
+    open_app:{c:'desktop',i:'📱',l:'Open App'},open_application:{c:'desktop',i:'📱',l:'Open App'},type_text:{c:'desktop',i:'⌨',l:'Type Text'},click_element:{c:'desktop',i:'🖱',l:'Click Element'},click_ui_element:{c:'desktop',i:'🖱',l:'Click UI'},click:{c:'desktop',i:'🖱',l:'Click'},press_shortcut:{c:'desktop',i:'⌘',l:'Press Shortcut'},paste_text:{c:'desktop',i:'📋',l:'Paste'},copy_to_clipboard:{c:'desktop',i:'📋',l:'Copy'},navigate_url:{c:'desktop',i:'🔗',l:'Navigate'},fill_form:{c:'desktop',i:'📝',l:'Fill Form'},scroll_page:{c:'desktop',i:'📜',l:'Scroll'},take_screenshot:{c:'desktop',i:'📸',l:'Screenshot'},
+    upload_file:{c:'drive',i:'⬆',l:'Upload File'},file_read:{c:'drive',i:'📄',l:'Read File'},file_write:{c:'drive',i:'💾',l:'Write File'},download_attachment:{c:'drive',i:'⬇',l:'Download'},
+    open_url:{c:'desktop',i:'🔗',l:'Open URL'},summarize:{c:'ai',i:'📝',l:'Summarize'},classify:{c:'ai',i:'🏷',l:'Classify'},filter:{c:'data',i:'🔍',l:'Filter'},transform:{c:'data',i:'⚡',l:'Transform'},branch:{c:'logic',i:'⑂',l:'Branch'}
+  };
+  var def=all[a]||{c:'action',i:'⬡',l:a};
+  return {category:def.c,icon:def.i,label:def.l,color:edNodeTypes[def.c]?edNodeTypes[def.c].color:'#6b7280'};
+}
 
 // ═══════════ BRIDGE ═══════════
 function bridge(type,payload){
@@ -467,8 +582,6 @@ function renderSBWorkflows(){
 function openWF(id,name){
   document.getElementById('wf-name').value=name;
   wfId=id;
-  bridge('editor.workflowDetail',{workflowId:id});
-  // Show Run + Activate buttons for deployed workflows
   document.getElementById('btn-run').style.display='';
   document.getElementById('btn-toggle-active').style.display='';
   var w=deployedWorkflows.find(function(w){return w.id===id});
@@ -476,22 +589,47 @@ function openWF(id,name){
     var s=document.getElementById('wf-status');var b=document.getElementById('btn-toggle-active');
     if(w.enabled){s.textContent='Active';s.className='status active';b.textContent='Deactivate'}else{s.textContent='Draft';s.className='status draft';b.textContent='Activate'}
   }
+  // Request full workflow detail from backend
+  bridge('editor.workflowDetail',{workflowId:id});
+  // Switch to editor immediately
+  showView('editor');
+  // Also try to request run history
+  bridge('editor.runHistory');
+  // Set a timeout: if no graph appears within 2s, show a message
+  setTimeout(function(){
+    if(editNodes.length===0){
+      toast('No steps found for this workflow. It may need to be re-analyzed.','error');
+    }
+  },2000);
 }
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t||'';return d.innerHTML}
 
 // ═══════════ EDITOR ═══════════
 function initEditor(){
   var pal=document.getElementById('node-palette');
-  var h='';
+  var h='<div style="padding:10px 10px 6px"><input id="node-filter" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rxs);padding:7px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit" placeholder="Filter nodes..." oninput="filterNodes(this.value)"></div>';
   Object.keys(edNodeTypes).forEach(function(cat){
     var c=edNodeTypes[cat];
-    h+='<div class="sb-title">'+cat.replace(/([A-Z])/g,' $1').replace(/^./,function(s){return s.toUpperCase()})+'</div>';
+    h+='<div class="sb-title" data-cat="'+cat+'">'+catNames[cat]+'</div>';
     c.items.forEach(function(n){
-      h+='<div class="sb-item" draggable="true" ondragstart="dragFromPalette(event,\''+n.t+'\',\''+n.l+'\',\''+n.i+'\',\''+cat+'\')"><div class="sb-dot" style="background:'+c.color+'"></div>'+n.i+' '+n.l+'</div>';
+      h+='<div class="sb-item" data-cat="'+cat+'" draggable="true" ondragstart="dragFromPalette(event,\''+n.t+'\',\''+n.l+'\',\''+n.i+'\',\''+cat+'\')" title="'+(n.d||'')+'"><div class="sb-dot" style="background:'+c.color+'"></div>'+n.i+' '+n.l+'</div>';
     });
   });
   pal.innerHTML=h;
   renderEditor();
+}
+
+function filterNodes(q){
+  var items=document.querySelectorAll('#node-palette .sb-item');
+  var titles=document.querySelectorAll('#node-palette .sb-title');
+  var any=false;
+  items.forEach(function(item){
+    var show=!q||item.textContent.toLowerCase().includes(q.toLowerCase());
+    item.style.display=show?'flex':'none';
+    if(show)any=true;
+  });
+  titles.forEach(function(t){t.style.display=any&&!q?'block':'none'});
+  if(!any&&q){document.querySelector('#node-palette .sb-title').style.display='block'}
 }
 
 function dragFromPalette(e,t,l,i,cat){
@@ -609,7 +747,7 @@ function renderEditor(){
   // Nodes
   editNodes.forEach(function(n){
     var cat=n.category||'action';
-    var colors={trigger:'#eab308',source:'#3b82f6',transform:'#8b5cf6',decision:'#f59e0b',action:'#22c55e',desktop:'#6b7280'};
+    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280'};
     var c=colors[cat]||'#6b7280';
     var sel=selNodeIds.has(n.id);
     // Truncate text to fit in 240px node
@@ -644,6 +782,16 @@ function renderEditor(){
   svg.innerHTML=html;
 }
 
+function selectEdge(e,id){e.stopPropagation();selNodeIds.clear();selNodeIds.add(id);renderEditor()}
+
+function selectNode(e,id){
+  e.stopPropagation();
+  if(!e.shiftKey&&!e.metaKey)selNodeIds.clear();
+  selNodeIds.add(id);
+  renderEditor();
+  renderInspector(id);
+}
+
 function nodeMouseDown(e,id){
   if(e.button!==0)return;
   e.stopPropagation();
@@ -652,13 +800,6 @@ function nodeMouseDown(e,id){
   dragNode=id;
   var r=editorCanvas.getBoundingClientRect();
   dragOff={x:(e.clientX-r.left-panOff.x)/zoom-n.x,y:(e.clientY-r.top-panOff.y)/zoom-n.y};
-}
-
-function selectNode(e,id){
-  e.stopPropagation();
-  selNodeIds=id;
-  renderEditor();
-  renderInspector(id);
 }
 
 function startConnect(e,id){
@@ -842,46 +983,10 @@ window.mirror={
     document.getElementById('conf-pct').textContent=cp+'%';
     if(workflow.trigger&&workflow.trigger.cron)document.getElementById('schedule-select').value=workflow.trigger.cron;
     var cont=document.getElementById('steps-container');cont.innerHTML='';
-    var labels={
-      open_url:'Open URL',open_application:'Open App',type_text:'Type Text',
-      press_shortcut:'Press Shortcut',click:'Click Element',wait:'Wait',
-      copy_clipboard:'Copy to Clipboard',paste_text:'Paste',extract_data:'Extract Data',
-      web_request:'HTTP Request',send_email:'Send Email',file_read:'Read File',
-      file_write:'Write File',run_script:'Run Script',screenshot:'Screenshot',
-      condition:'If Condition',transform:'Transform Data',
-      gmail_search:'Gmail Search',gmail_send:'Gmail Send',
-      gmail_fetch:'Fetch Email',gmail_open_email:'Open Email',
-      sheets_append:'Append Row',sheets_read:'Read Sheet',
-      fill_form:'Fill Form',approval_required:'Approval Needed',
-      notify_user:'Notify User',slack_post:'Slack Post',
-      upload_file:'Upload File',download_attachment:'Download File'
-    };
-    // Map action → {category, icon}
-    var catMap={
-      schedule_trigger:{c:'trigger',i:'⏰'},manual_trigger:{c:'trigger',i:'👆'},
-      gmail_search:{c:'source',i:'G'},gmail_fetch:{c:'source',i:'M'},gmail_open_email:{c:'source',i:'📧'},
-      spreadsheet_read:{c:'source',i:'S'},sheets_read:{c:'source',i:'S'},
-      file_read:{c:'source',i:'📄'},web_request:{c:'source',i:'🌐'},
-      open_url:{c:'source',i:'🔗'},copy_clipboard:{c:'source',i:'📋'},
-      extract_data:{c:'transform',i:'✂'},transform:{c:'transform',i:'⚡'},
-      summarize:{c:'transform',i:'📝'},classify:{c:'transform',i:'🏷'},
-      filter:{c:'transform',i:'🔍'},fill_form:{c:'transform',i:'📝'},
-      condition:{c:'decision',i:'?'},branch:{c:'decision',i:'⑂'},approval_required:{c:'decision',i:'✓'},
-      gmail_send:{c:'action',i:'✉'},send_email:{c:'action',i:'✉'},
-      sheets_append:{c:'action',i:'📊'},append_sheet_row:{c:'action',i:'📊'},
-      slack_post:{c:'action',i:'#'},notify_user:{c:'action',i:'🔔'},
-      upload_file:{c:'action',i:'⬆'},download_attachment:{c:'action',i:'⬇'},
-      run_script:{c:'action',i:'⚙'},screenshot:{c:'action',i:'📸'},
-      file_write:{c:'action',i:'💾'},web_request:{c:'action',i:'🌐'},
-      open_application:{c:'desktop',i:'📱'},type_text:{c:'desktop',i:'⌨'},
-      click_ui_element:{c:'desktop',i:'🖱'},click:{c:'desktop',i:'🖱'},
-      press_shortcut:{c:'desktop',i:'⌘'},paste_text:{c:'desktop',i:'📋'},
-      desktop_navigation:{c:'desktop',i:'🧭'},wait:{c:'desktop',i:'⏱'}
-    };
     var reviewIds=workflow.requiresReview||[];
     (workflow.steps||[]).forEach(function(s,i){
       var needs=reviewIds.indexOf(s.id)>=0||s.requiresReview;
-      var al=labels[s.action]||s.action;
+      var ni=getNodeInfo(s.action);var al=ni.label;
       var card=document.createElement('div');
       card.className='step-card'+(needs?' review':'');
       card.innerHTML='<button class="step-toggle on" onclick="this.classList.toggle(\'on\')"></button>'+
@@ -893,16 +998,15 @@ window.mirror={
     });
     // Build editor graph from workflow steps
     editNodes=(workflow.steps||[]).map(function(s,i){
-      var a=s.action||'unknown';
-      var cm=catMap[a]||{c:'action',i:'⬡'};
+      var ni=getNodeInfo(s.action||'unknown');
       var exec=s.executionType||'cloud';
-      // Desktop overrides: always use desktop category for local-only steps
-      if(exec==='local'||exec==='desktop')cm.c='desktop';
+      var cat=ni.category;
+      if(exec==='local'||exec==='desktop')cat='desktop';
       return {
-        id:'s'+i,type:a,label:labels[a]||a,icon:cm.i,category:cm.c,
+        id:'s'+i,type:s.action,label:ni.label,icon:ni.icon,category:cat,
         x:100+i*300,y:200+(i%2)*140,
         confidence:s.confidence||0.7,execType:exec,
-        desc:s.description||labels[a]||a
+        desc:s.description||ni.label
       };
     });
     editEdges=[];
@@ -922,36 +1026,11 @@ window.mirror={
     bridge('workflow.list');
   },
   showAutoGraph:function(steps){
-    var labels={
-      open_url:'Open URL',open_application:'Open App',type_text:'Type Text',
-      press_shortcut:'Press Shortcut',click:'Click Element',wait:'Wait',
-      copy_clipboard:'Copy',paste_text:'Paste',extract_data:'Extract Data',
-      web_request:'HTTP Request',send_email:'Send Email',file_read:'Read File',
-      file_write:'Write File',run_script:'Run Script',screenshot:'Screenshot',
-      condition:'If Condition',transform:'Transform Data',
-      gmail_search:'Gmail Search',gmail_send:'Gmail Send',
-      sheets_append:'Append Row',sheets_read:'Read Sheet',
-      fill_form:'Fill Form',approval_required:'Approval',
-      notify_user:'Notify',slack_post:'Slack Post',upload_file:'Upload File'
-    };
-    var catMap={
-      schedule_trigger:{c:'trigger',i:'⏰'},gmail_search:{c:'source',i:'G'},gmail_fetch:{c:'source',i:'M'},
-      sheets_read:{c:'source',i:'S'},file_read:{c:'source',i:'📄'},
-      open_url:{c:'source',i:'🔗'},copy_clipboard:{c:'source',i:'📋'},
-      extract_data:{c:'transform',i:'✂'},filter:{c:'transform',i:'🔍'},
-      condition:{c:'decision',i:'?'},approval_required:{c:'decision',i:'✓'},
-      gmail_send:{c:'action',i:'✉'},send_email:{c:'action',i:'✉'},
-      sheets_append:{c:'action',i:'📊'},slack_post:{c:'action',i:'#'},
-      notify_user:{c:'action',i:'🔔'},file_write:{c:'action',i:'💾'},
-      open_application:{c:'desktop',i:'📱'},type_text:{c:'desktop',i:'⌨'},
-      click:{c:'desktop',i:'🖱'},paste_text:{c:'desktop',i:'📋'},wait:{c:'desktop',i:'⏱'}
-    };
     editNodes=(steps||[]).map(function(s,i){
-      var a=s.action||'unknown';
-      var cm=catMap[a]||{c:'action',i:'⬡'};
-      return {id:s.id||'e'+i,type:a,label:labels[a]||a||'Step',icon:cm.i,category:cm.c,
+      var ni=getNodeInfo(s.action||'unknown');
+      return {id:s.id||'e'+i,type:s.action,label:ni.label,icon:ni.icon,category:ni.category,
         x:100+i*300,y:200+(i%2)*140,confidence:s.confidence||0.7,
-        execType:s.executionType||'cloud',desc:s.description||labels[a]||a};
+        execType:s.executionType||'cloud',desc:s.description||ni.label};
     });
     editEdges=[];
     for(var i=0;i<editNodes.length-1;i++)editEdges.push({id:'ce'+i,from:editNodes[i].id,to:editNodes[i+1].id,label:''});

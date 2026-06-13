@@ -739,7 +739,11 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     // MARK: - Editor Data Senders
 
     private func sendWorkflowDetail(workflowId: String, to webView: WKWebView) {
-        guard let wf = workflowEngine?.getWorkflow(id: workflowId) else { return }
+        guard let wf = workflowEngine?.getWorkflow(id: workflowId) else {
+            print("[Mirror] Workflow detail failed: no workflow found for id \(workflowId)")
+            callJS(on: webView, "window.mirror.showError", args: ["Workflow not found. It may have been deleted."])
+            return
+        }
         let steps = wf.workflow.steps.map { step -> [String: Any] in
             [
                 "id": step.id, "action": step.action, "description": step.description,
