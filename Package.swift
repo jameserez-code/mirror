@@ -11,7 +11,6 @@ let package = Package(
             resources: [
                 .copy("ui.html"),
                 .copy("settings.html"),
-                .copy("editor.html"),
             ],
             linkerSettings: [
                 .linkedFramework("AppKit"),

@@ -5,575 +5,654 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mirror</title>
 <style>
-  :root {
-    --bg: #111113;
-    --bg2: #18181c;
-    --bg3: #222228;
-    --border: rgba(255,255,255,0.08);
-    --accent: #6366f1;
-    --accent-light: #818cf8;
-    --red: #ef4444;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --text: #f1f5f9;
-    --text2: #94a3b8;
-    --text3: #475569;
-    --radius: 12px;
-    --radius-sm: 8px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-    font-size: 14px;
-    height: 100vh;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-    user-select: none;
-  }
+:root{--bg:#0d0d10;--bg2:#18181c;--bg3:#222228;--bg4:#2a2a30;--border:rgba(255,255,255,0.08);--accent:#6366f1;--alight:#818cf8;--text:#f1f5f9;--t2:#94a3b8;--t3:#475569;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--blue:#3b82f6;--purple:#8b5cf6;--amber:#f59e0b;--r:10px;--rs:7px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;background:var(--bg);color:var(--text);font-size:13px;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none}
+#app{height:100vh;display:flex;flex-direction:column}
 
-  .titlebar {
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .titlebar-title { font-size: 13px; font-weight: 600; color: var(--text2); letter-spacing: 0.02em; }
-  .titlebar-actions { -webkit-app-region: no-drag; display: flex; gap: 8px; }
-  .titlebar-btn {
-    background: none; border: 1px solid var(--border); color: var(--text2);
-    font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.15s;
-  }
-  .titlebar-btn:hover { background: var(--bg3); color: var(--text); }
+/* Toolbar */
+.tb{height:44px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg2);gap:8px;z-index:10}
+.tb-logo{font-size:14px;font-weight:700;color:var(--alight);margin-right:16px;letter-spacing:-0.3px}
+.tb-btn{height:28px;padding:0 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:12px;cursor:pointer;transition:all 0.12s;font-family:inherit;display:flex;align-items:center;gap:4px}
+.tb-btn:hover{border-color:var(--accent);color:var(--alight)}
+.tb-btn.rec{background:var(--red);border-color:var(--red);color:#fff;font-weight:600;animation:pulse 2s infinite}
+.tb-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.tb-btn.primary:hover{background:var(--alight)}
+.tb-btn.green{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+.tb-btn.warn{background:var(--amber);border-color:var(--amber);color:#000}
+.status{font-size:11px;padding:2px 10px;border-radius:100px;font-weight:600}
+.status.draft{background:rgba(148,163,184,0.15);color:var(--t3)}
+.status.active{background:rgba(34,197,94,0.15);color:var(--green)}
+.status.failed{background:rgba(239,68,68,0.15);color:var(--red)}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.tb-spacer{flex:1}
 
-  .content {
-    height: calc(100vh - 52px);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px 40px;
-  }
+/* Main */
+.main{flex:1;display:flex;overflow:hidden}
 
-  #state-idle { display: flex; flex-direction: column; align-items: center; gap: 32px; width: 100%; max-width: 480px; }
-  .mirror-logo {
-    width: 72px; height: 72px;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    border-radius: 20px; display: flex; align-items: center; justify-content: center;
-    font-size: 32px; box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
-  }
-  .idle-heading { text-align: center; }
-  .idle-heading h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
-  .idle-heading p { color: var(--text2); font-size: 15px; line-height: 1.5; }
-  .record-btn {
-    width: 100%; height: 56px; background: var(--accent); border: none; border-radius: var(--radius);
-    color: white; font-size: 16px; font-weight: 600; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    transition: all 0.2s; box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
-  }
-  .record-btn:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(99, 102, 241, 0.5); }
-  .record-btn:active { transform: translateY(0); }
-  .record-dot { width: 10px; height: 10px; background: white; border-radius: 50%; }
+/* Sidebar */
+.sb{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:12px 12px 4px}
+.sb-item{padding:7px 12px;font-size:12px;color:var(--t2);cursor:pointer;transition:background .1s;border-radius:6px;margin:1px 6px;display:flex;align-items:center;gap:6px}
+.sb-item:hover{background:var(--bg3);color:var(--text)}
+.sb-item.selected{background:rgba(99,102,241,0.15);color:var(--alight)}
+.sb-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sb-item2{padding:6px 12px;font-size:11px;color:var(--t2);cursor:pointer;transition:all .1s;display:flex;align-items:center;justify-content:space-between}
+.sb-item2:hover{background:var(--bg3);color:var(--text)}
+.sb-item2 .wf-status{font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(34,197,94,0.12);color:var(--green)}
 
-  .workflow-list { width: 100%; display: flex; flex-direction: column; gap: 8px; }
-  .workflow-list-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
-  .workflow-item {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
-  }
-  .workflow-item-name { font-size: 13px; font-weight: 500; }
-  .workflow-item-schedule { font-size: 11px; color: var(--text3); margin-top: 2px; }
-  .workflow-item-status { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(34,197,94,0.15); color: var(--green); }
-  .workflow-item-status.paused { background: rgba(148,163,184,0.15); color: var(--text3); }
-  .workflow-empty { text-align: center; color: var(--text3); font-size: 13px; padding: 20px 0; }
+/* Canvas */
+.cv{flex:1;position:relative;overflow:hidden;background:var(--bg)}
+.cv-svg{width:100%;height:100%}
+.cv-node{fill:var(--bg2);stroke:rgba(255,255,255,0.1);stroke-width:1.5;rx:8;cursor:move;transition:stroke .15s}
+.cv-node:hover{stroke:var(--accent)}
+.cv-node.selected{stroke:var(--alight);stroke-width:2}
+.cv-node-header{fill:rgba(99,102,241,0.1);rx:8}
+.cv-node.trigger .cv-node-header{fill:rgba(234,179,8,0.08)}
+.cv-node.source .cv-node-header{fill:rgba(59,130,246,0.08)}
+.cv-node.transform .cv-node-header{fill:rgba(139,92,246,0.08)}
+.cv-node.decision .cv-node-header{fill:rgba(245,158,11,0.08)}
+.cv-node.action .cv-node-header{fill:rgba(34,197,94,0.08)}
+.cv-node.desktop .cv-node-header{fill:rgba(107,114,128,0.08)}
+.cv-edge{stroke:#475569;stroke-width:2;fill:none}
+.cv-edge:hover{stroke:var(--accent)}
+.cv-edge-arrow{fill:#475569}
+.cv-handle{fill:var(--accent);stroke:var(--bg);stroke-width:2;cursor:crosshair;r:5}
 
-  #state-recording { display: none; flex-direction: column; align-items: center; gap: 28px; text-align: center; }
-  .recording-indicator {
-    display: flex; align-items: center; gap: 10px;
-    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
-    padding: 10px 20px; border-radius: 100px;
-  }
-  .rec-dot { width: 8px; height: 8px; background: var(--red); border-radius: 50%; animation: pulse-red 1.2s ease-in-out infinite; }
-  @keyframes pulse-red { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
-  .recording-label { font-size: 13px; font-weight: 600; color: var(--red); }
-  .recording-hint { color: var(--text2); font-size: 15px; line-height: 1.6; max-width: 360px; }
-  .recording-hint strong { color: var(--text); }
-  .recording-stats { display: flex; gap: 24px; }
-  .stat { text-align: center; }
-  .stat-value { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
-  .stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .stop-btn {
-    width: 240px; height: 48px; background: var(--red); border: none; border-radius: var(--radius);
-    color: white; font-size: 15px; font-weight: 600; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
-  }
-  .stop-btn:hover { background: #dc2626; transform: translateY(-1px); }
+/* Context */
+.ctx{position:fixed;z-index:100;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:160px;box-shadow:0 8px 30px rgba(0,0,0,0.5)}
+.ctx-item{padding:7px 12px;font-size:12px;color:var(--t2);cursor:pointer;border-radius:5px}
+.ctx-item:hover{background:var(--bg3);color:var(--text)}
+.ctx-item.danger{color:var(--red)}
+.ctx-item.danger:hover{background:rgba(239,68,68,0.1)}
+.ctx-sep{height:1px;background:var(--border);margin:4px 8px}
 
-  #state-analyzing { display: none; flex-direction: column; align-items: center; gap: 24px; text-align: center; max-width: 400px; }
-  .analyzing-spinner { width: 48px; height: 48px; border: 3px solid var(--bg3); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .analyzing-title { font-size: 20px; font-weight: 600; }
-  .analyzing-status { font-size: 13px; color: var(--text2); }
-  .progress-bar-wrap { width: 100%; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); border-radius: 2px; transition: width 0.5s ease; width: 0%; }
-  .cancel-analysis-btn { background: none; border: 1px solid var(--border); color: var(--text3); padding: 6px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-top: 8px; }
-  .cancel-analysis-btn:hover { border-color: var(--text2); color: var(--text2); }
+/* Inspector */
+.insp{width:320px;background:var(--bg2);border-left:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;overflow:hidden}
+.insp-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--t3);font-size:12px;text-align:center;padding:20px}
+.insp-tabs{display:flex;border-bottom:1px solid var(--border)}
+.insp-tab{flex:1;padding:10px 0;text-align:center;font-size:11px;font-weight:600;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .12s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.insp-tab.active{color:var(--alight);border-bottom-color:var(--accent)}
+.insp-tab:hover{color:var(--t2)}
+.insp-body{flex:1;overflow-y:auto;padding:16px}
+.insp-s{margin-bottom:16px}
+.insp-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:8px}
+.insp-f{margin-bottom:10px}
+.insp-f label{font-size:11px;color:var(--t2);display:block;margin-bottom:3px}
+.insp-f input,.insp-f textarea,.insp-f select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit}
+.insp-f input:focus,.insp-f textarea:focus{border-color:var(--accent)}
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;margin-right:4px}
+.bg-cloud{background:rgba(34,197,94,0.15);color:#4ade80}
+.bg-local{background:rgba(99,102,241,0.15);color:#a5b4fc}
+.insp-actions{display:flex;gap:8px;margin-top:16px}
+.insp-actions button{flex:1}
 
-  #state-review { display: none; flex-direction: column; width: 100%; max-width: 560px; height: calc(100vh - 52px); overflow: hidden; padding: 20px 0; }
-  .review-header { padding: 0 0 20px 0; flex-shrink: 0; }
-  .review-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-  .review-header p { color: var(--text2); font-size: 13px; }
-  .workflow-name-input {
-    width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 10px 14px; color: var(--text); font-size: 15px; font-weight: 600;
-    margin-bottom: 16px; outline: none; transition: border-color 0.15s;
-  }
-  .workflow-name-input:focus { border-color: var(--accent); }
-  .steps-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 8px; min-height: 0; margin-bottom: 16px; }
-  .steps-scroll::-webkit-scrollbar { width: 4px; }
-  .steps-scroll::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
-  .step-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; transition: border-color 0.15s;
-  }
-  .step-card.review-required { border-color: rgba(234,179,8,0.4); }
-  .step-card.disabled { opacity: 0.4; }
-  .step-toggle {
-    width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border);
-    background: none; cursor: pointer; flex-shrink: 0; margin-top: 1px;
-    position: relative; transition: all 0.15s;
-  }
-  .step-toggle.checked { background: var(--accent); border-color: var(--accent); }
-  .step-toggle.checked::after {
-    content: ''; position: absolute; left: 4px; top: 1px;
-    width: 6px; height: 10px; border: 2px solid white; border-top: none; border-left: none; transform: rotate(45deg);
-  }
-  .step-body { flex: 1; min-width: 0; }
-  .step-action {
-    font-size: 10px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.08em; color: var(--accent-light); margin-bottom: 3px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .step-desc { font-size: 13px; color: var(--text); line-height: 1.4; }
-  .step-data-flow { font-size: 11px; color: var(--text3); margin-top: 4px; }
-  .step-review-badge { font-size: 10px; padding: 2px 6px; background: rgba(234,179,8,0.15); color: var(--yellow); border-radius: 4px; margin-top: 4px; display: inline-block; }
-  .confidence-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-shrink: 0; }
-  .confidence-label { font-size: 12px; color: var(--text3); }
-  .confidence-bar { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-  .confidence-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
-  .confidence-pct { font-size: 12px; font-weight: 600; }
-  .schedule-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-shrink: 0; }
-  .schedule-label { font-size: 13px; color: var(--text2); flex-shrink: 0; }
-  .schedule-select {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
-    color: var(--text); padding: 6px 10px; font-size: 13px; outline: none; cursor: pointer;
-  }
-  .review-actions { display: flex; gap: 10px; flex-shrink: 0; }
-  .btn-deploy {
-    flex: 1; height: 44px; background: var(--accent); border: none; border-radius: var(--radius-sm);
-    color: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s;
-  }
-  .btn-deploy:hover { background: var(--accent-light); }
-  .btn-export {
-    height: 44px; padding: 0 16px; background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text2); font-size: 13px; font-weight: 500;
-    cursor: pointer; transition: all 0.15s; white-space: nowrap;
-  }
-  .btn-export:hover { border-color: var(--accent); color: var(--accent-light); }
+/* Center content (recording/review) */
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:20px;overflow-y:auto}
+.center.hidden{display:none}
+.record-btn{width:280px;height:56px;background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 4px 20px rgba(99,102,241,0.4)}
+.record-btn:hover{background:var(--alight);transform:translateY(-1px)}
+.rec-dot{width:10px;height:10px;background:#fff;border-radius:50%;display:inline-block;margin-right:8px}
+.rec-indicator{display:flex;align-items:center;gap:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:10px 24px;border-radius:100px}
+.rec-dot2{width:8px;height:8px;background:var(--red);border-radius:50%;animation:pulse 1.2s infinite}
+.stop-btn{width:240px;height:48px;background:var(--red);border:none;border-radius:var(--r);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.stop-btn:hover{background:#dc2626}
 
-  #state-deployed { display: none; flex-direction: column; align-items: center; gap: 20px; text-align: center; max-width: 400px; }
-  .deployed-icon { font-size: 56px; line-height: 1; }
-  .deployed-title { font-size: 24px; font-weight: 700; }
-  .deployed-subtitle { font-size: 14px; color: var(--text2); line-height: 1.5; }
-  .deployed-schedule { font-size: 13px; color: var(--accent-light); background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); padding: 8px 16px; border-radius: 100px; }
-  .btn-new-recording {
-    width: 200px; height: 44px; background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-weight: 500;
-    cursor: pointer; transition: all 0.15s; margin-top: 8px;
-  }
-  .btn-new-recording:hover { border-color: var(--accent); color: var(--accent-light); }
+/* Steps */
+.steps-list{width:100%;max-width:560px;display:flex;flex-direction:column;gap:8px}
+.step-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:14px 16px;display:flex;align-items:flex-start;gap:10px}
+.step-card.review{border-color:rgba(234,179,8,0.4)}
+.step-toggle{width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border);background:none;cursor:pointer;flex-shrink:0;margin-top:2px;transition:all .15s}
+.step-toggle.on{background:var(--accent);border-color:var(--accent)}
+.step-toggle.on::after{content:'';display:block;width:6px;height:10px;border:2px solid #fff;border-top:none;border-left:none;transform:rotate(45deg);margin:1px 0 0 4px}
+.step-body{flex:1;min-width:0}
+.step-action{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--alight);margin-bottom:3px}
+.step-desc{font-size:13px;line-height:1.4}
+.step-flow{font-size:11px;color:var(--t3);margin-top:4px}
+.step-badge{font-size:10px;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block}
+.step-badge.review{background:rgba(234,179,8,0.15);color:var(--yellow)}
 
-  .error-toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px);
-    background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #fca5a5;
-    padding: 10px 20px; border-radius: 100px; font-size: 13px; transition: transform 0.3s ease;
-    white-space: nowrap; max-width: 500px; z-index: 100;
-  }
-  .error-toast.visible { transform: translateX(-50%) translateY(0); }
+/* Confidence */
+.conf-row{display:flex;align-items:center;gap:10px;width:100%;max-width:560px}
+.conf-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.conf-fill{height:100%;border-radius:2px;transition:width .5s}
+.sched-row{display:flex;align-items:center;gap:10px;width:100%;max-width:560px}
+.sched-row select{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:6px 10px;font-size:13px;outline:none;cursor:pointer;font-family:inherit}
+.review-actions{display:flex;gap:10px;width:100%;max-width:560px}
+.btn-deploy{flex:1;height:44px;background:var(--accent);border:none;border-radius:var(--rs);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.btn-deploy:hover{background:var(--alight)}
+.btn-export{height:44px;padding:0 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);color:var(--t2);font-size:13px;cursor:pointer}
+.btn-export:hover{border-color:var(--accent);color:var(--alight)}
 
-  .confetti-particle { position: fixed; width: 8px; height: 8px; border-radius: 2px; pointer-events: none; animation: confetti-fall 1.6s ease-out forwards; }
-  @keyframes confetti-fall {
-    0% { transform: translate(0,0) rotate(0deg); opacity: 1; }
-    100% { transform: translate(var(--tx), var(--ty)) rotate(var(--tr)); opacity: 0; }
-  }
+/* Run History */
+.run-panel{height:200px;background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:height .2s}
+.run-panel.closed{height:36px}
+.run-header{height:36px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);cursor:pointer;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.run-header:hover{background:var(--bg3)}
+.run-body{flex:1;overflow-y:auto;padding:8px 16px}
+.run-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer}
+.run-row:hover{background:var(--bg3);margin:0 -16px;padding-left:16px;padding-right:16px}
+.run-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.run-dot.ok{background:var(--green)}
+.run-dot.fail{background:var(--red)}
+.run-time{color:var(--t3);width:46px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.run-name{flex:1}
+.run-dur{color:var(--t3);width:44px;text-align:right}
 
-  .exec-badge {
-    font-size: 9px; padding: 1px 6px; border-radius: 4px;
-    font-weight: 600; text-transform: none; letter-spacing: 0;
-  }
-  .exec-cloud { background: rgba(34,197,94,0.15); color: #4ade80; }
-  .exec-local { background: rgba(99,102,241,0.15); color: #a5b4fc; }
-  .exec-summary {
-    font-size: 11px; color: var(--text3); margin-bottom: 12px; line-height: 1.4;
-  }
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;padding:8px 20px;border-radius:100px;font-size:13px;transition:all .3s;opacity:0}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.success{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:#86efac}
+.toast.error{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5}
+
+/* Workflow name input */
+.wf-name-input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;color:var(--text);font-size:15px;font-weight:600;outline:none;font-family:inherit}
+.wf-name-input:focus{border-color:var(--accent)}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Graph editor specific */
+.editor-layout{display:flex;flex:1;overflow:hidden}
 </style>
 </head>
 <body>
+<div id="app">
+  <div class="tb">
+    <span class="tb-logo">Mirror</span>
+    <button class="tb-btn" onclick="showView('idle')">Record</button>
+    <button class="tb-btn" id="btn-editor" onclick="showView('editor')">Editor</button>
+    <span class="tb-spacer"></span>
+    <span class="status draft" id="wf-status">Draft</span>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-deploy-main" onclick="deployWorkflow()" style="display:none">Deploy</button>
+    <button class="tb-btn" onclick="bridge('settings.open')">Settings</button>
+  </div>
 
-<div class="titlebar">
-  <span class="titlebar-title">Mirror</span>
-  <div class="titlebar-actions">
-    <button class="titlebar-btn" onclick="bridge('editor.open')">Editor</button>
-    <button class="titlebar-btn" onclick="bridge('settings.open')">Settings</button>
+  <div class="main">
+    <!-- IDLE VIEW -->
+    <div class="center" id="view-idle">
+      <div style="text-align:center">
+        <h1 style="font-size:28px;font-weight:700;letter-spacing:-0.5px;margin-bottom:8px">Record once.<br>Automate forever.</h1>
+        <p style="color:var(--t2);font-size:15px;line-height:1.5;margin-bottom:32px">Show Mirror how you do something. It learns the workflow and runs it automatically.</p>
+      </div>
+      <button class="record-btn" onclick="startRecording()"><span class="rec-dot"></span>Start Recording</button>
+      <div style="width:100%;max-width:480px" id="wf-list-container">
+        <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Your Automations</div>
+        <div id="wf-list"><div style="color:var(--t3);font-size:13px;text-align:center;padding:20px">No automations yet</div></div>
+      </div>
+    </div>
+
+    <!-- RECORDING VIEW -->
+    <div class="center hidden" id="view-recording">
+      <div class="rec-indicator"><div class="rec-dot2"></div><span style="font-size:13px;font-weight:600;color:var(--red)">RECORDING</span></div>
+      <p style="color:var(--t2);font-size:15px;text-align:center;line-height:1.6;max-width:360px"><strong style="color:var(--text)">Go do your workflow now.</strong><br>Open apps, browse, copy data — exactly as you normally would. Mirror is watching and learning.</p>
+      <div style="display:flex;gap:24px">
+        <div style="text-align:center"><div style="font-size:28px;font-weight:700" id="event-count">0</div><div style="font-size:11px;color:var(--t3)">Events</div></div>
+        <div style="text-align:center"><div style="font-size:28px;font-weight:700" id="duration">0:00</div><div style="font-size:11px;color:var(--t3)">Duration</div></div>
+      </div>
+      <button class="stop-btn" onclick="stopRecording()">■ Stop & Analyze</button>
+    </div>
+
+    <!-- ANALYZING VIEW -->
+    <div class="center hidden" id="view-analyzing">
+      <div style="width:48px;height:48px;border:3px solid var(--bg3);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div>
+      <div style="font-size:20px;font-weight:600">Mirror is learning...</div>
+      <div style="font-size:13px;color:var(--t2)" id="analyze-status">Reading your recording...</div>
+      <div style="width:280px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+        <div style="height:100%;background:linear-gradient(90deg,var(--accent),var(--alight));border-radius:2px;width:0%;transition:width .5s" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <!-- REVIEW VIEW -->
+    <div class="center hidden" id="view-review">
+      <h2 style="font-size:20px;font-weight:700">Review your automation</h2>
+      <p style="color:var(--t2);font-size:13px">Check each step before deploying. Uncheck steps you don't want.</p>
+      <input class="wf-name-input" id="wf-name" type="text" placeholder="Automation name..." />
+      <div class="conf-row">
+        <span style="font-size:12px;color:var(--t3)">Confidence</span>
+        <div class="conf-bar"><div class="conf-fill" id="conf-fill"></div></div>
+        <span style="font-size:12px;font-weight:600" id="conf-pct">--</span>
+      </div>
+      <div class="sched-row">
+        <span style="font-size:13px;color:var(--t2)">Run</span>
+        <select id="schedule-select">
+          <option value="manual">Manually only</option>
+          <option value="0 9 * * 1">Every Monday at 9am</option>
+          <option value="0 9 * * *">Daily at 9am</option>
+          <option value="0 9 * * 1-5">Weekdays at 9am</option>
+          <option value="0 9 1 * *">Monthly (1st at 9am)</option>
+        </select>
+      </div>
+      <div class="steps-list" id="steps-container"></div>
+      <div class="review-actions">
+        <button class="btn-export" onclick="bridge('workflow.export.n8n')">Export n8n</button>
+        <button class="btn-deploy" onclick="deployWorkflow()">Deploy Automation</button>
+      </div>
+    </div>
+
+    <!-- DEPLOYED VIEW -->
+    <div class="center hidden" id="view-deployed">
+      <div style="font-size:56px">✦</div>
+      <div style="font-size:24px;font-weight:700">Automation deployed!</div>
+      <div style="font-size:14px;color:var(--t2)" id="deployed-sub"></div>
+      <div style="font-size:13px;padding:8px 16px;border-radius:100px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:var(--alight)" id="deployed-sched"></div>
+      <button class="tb-btn primary" onclick="showView('idle')">Record another workflow</button>
+    </div>
+
+    <!-- EDITOR VIEW (embedded) -->
+    <div class="editor-layout hidden" id="view-editor">
+      <div class="sb" id="edit-sb">
+        <div class="sb-title">Nodes</div>
+        <div id="node-palette"></div>
+        <div class="sb-title" style="margin-top:16px">Deployed</div>
+        <div id="sb-workflows"></div>
+      </div>
+      <div class="cv" id="editor-canvas">
+        <svg class="cv-svg" id="editor-svg"></svg>
+      </div>
+      <div class="insp" id="editor-inspector">
+        <div class="insp-empty">Click a node to inspect</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="run-panel closed" id="run-panel">
+    <div class="run-header" onclick="toggleRunPanel()">▶ Run History</div>
+    <div class="run-body" id="run-body"></div>
   </div>
 </div>
 
-<div class="content">
-
-  <div id="state-idle">
-    <div class="mirror-logo">&#9672;</div>
-    <div class="idle-heading">
-      <h1>Record once.<br>Automate forever.</h1>
-      <p>Show Mirror how you do something. It learns the workflow and runs it automatically on a schedule.</p>
-    </div>
-    <button class="record-btn" onclick="startRecording()">
-      <span class="record-dot"></span>
-      Start Recording
-    </button>
-    <div class="workflow-list" id="workflow-list-container">
-      <div class="workflow-list-title">Your Automations</div>
-      <div class="workflow-empty" id="workflow-empty">No automations yet. Record your first workflow above.</div>
-      <div id="workflow-items"></div>
-    </div>
-  </div>
-
-  <div id="state-recording">
-    <div class="recording-indicator">
-      <div class="rec-dot"></div>
-      <span class="recording-label">RECORDING</span>
-    </div>
-    <p class="recording-hint">
-      <strong>Go do your workflow now.</strong><br>
-      Open apps, browse, copy data — exactly as you normally would. Mirror is watching and learning.
-    </p>
-    <div class="recording-stats">
-      <div class="stat">
-        <div class="stat-value" id="event-count">0</div>
-        <div class="stat-label">Events</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value" id="duration-display">0:00</div>
-        <div class="stat-label">Duration</div>
-      </div>
-    </div>
-    <button class="stop-btn" onclick="stopRecording()">
-      &#9632; Stop &amp; Analyze
-    </button>
-  </div>
-
-  <div id="state-analyzing">
-    <div class="analyzing-spinner"></div>
-    <div class="analyzing-title">Mirror is learning...</div>
-    <div class="analyzing-status" id="analyzing-status">Reading your recording...</div>
-    <div class="progress-bar-wrap" style="width: 280px;">
-      <div class="progress-bar-fill" id="progress-fill"></div>
-    </div>
-    <button class="cancel-analysis-btn" onclick="bridge('session.cancelAnalysis')">Cancel</button>
-  </div>
-
-  <div id="state-review">
-    <div class="review-header">
-      <h2>Review your automation</h2>
-      <p>Check each step before deploying. Uncheck steps you don't want.</p>
-    </div>
-    <input class="workflow-name-input" id="workflow-name-input" type="text" placeholder="Automation name..." />
-    <div class="confidence-row">
-      <span class="confidence-label">Confidence</span>
-      <div class="confidence-bar"><div class="confidence-fill" id="confidence-fill"></div></div>
-      <span class="confidence-pct" id="confidence-pct">--</span>
-    </div>
-    <div class="schedule-row">
-      <span class="schedule-label">Run</span>
-      <select class="schedule-select" id="schedule-select">
-        <option value="manual">Manually only</option>
-        <option value="0 9 * * 1">Every Monday at 9am</option>
-        <option value="0 9 * * *">Daily at 9am</option>
-        <option value="0 9 * * 1-5">Weekdays at 9am</option>
-        <option value="0 9 1 * *">Monthly (1st at 9am)</option>
-      </select>
-    </div>
-    <div class="steps-scroll" id="steps-container"></div>
-    <div class="review-actions">
-      <button class="btn-export" onclick="exportN8n()">Export n8n</button>
-      <button class="btn-deploy" onclick="deployWorkflow()">Deploy Automation</button>
-    </div>
-  </div>
-
-  <div id="state-deployed">
-    <div class="deployed-icon">&#10022;</div>
-    <div class="deployed-title">Automation deployed!</div>
-    <div class="deployed-subtitle" id="deployed-subtitle">Mirror will run this workflow automatically.</div>
-    <div class="deployed-schedule" id="deployed-schedule"></div>
-    <button class="btn-new-recording" onclick="showState('idle')">Record another workflow</button>
-  </div>
-
-</div>
-
-<div class="error-toast" id="error-toast"></div>
+<div class="toast" id="toast"></div>
 
 <script>
-const STATES = ['idle', 'recording', 'analyzing', 'review', 'deployed'];
-let currentState = 'idle';
-let currentWorkflow = null;
+// ═══════════ STATE ═══════════
+var state='idle',currentWorkflow=null,wfId='';
+var editNodes=[],editEdges=[],selNodeId=null,connecting=null,dragNode=null,dragOff={x:0,y:0};
+var panOff={x:0,y:0},panning=false,panStart={x:0,y:0},zoom=1;
+var deployedWorkflows=[],runHistory=[];
+var edNodeTypes={
+  trigger:{color:'#eab308',items:[{t:'schedule_trigger',l:'Schedule',i:'⏰'},{t:'manual_trigger',l:'Manual',i:'👆'}]},
+  source:{color:'#3b82f6',items:[{t:'gmail_search',l:'Gmail Search',i:'G'},{t:'gmail_fetch',l:'Gmail Fetch',i:'M'},{t:'spreadsheet_read',l:'Sheets Read',i:'S'},{t:'file_read',l:'Read File',i:'📄'}]},
+  transform:{color:'#8b5cf6',items:[{t:'extract_fields',l:'Extract Fields',i:'✂'},{t:'summarize',l:'Summarize',i:'📝'},{t:'filter',l:'Filter',i:'🔍'},{t:'classify',l:'Classify',i:'🏷'}]},
+  decision:{color:'#f59e0b',items:[{t:'condition',l:'If Condition',i:'?'},{t:'branch',l:'Branch',i:'⑂'}]},
+  action:{color:'#22c55e',items:[{t:'send_email',l:'Send Email',i:'✉'},{t:'append_sheet_row',l:'Append Row',i:'📊'},{t:'slack_post',l:'Slack Post',i:'#'},{t:'notify_user',l:'Notify',i:'🔔'}]},
+  desktop:{color:'#6b7280',items:[{t:'open_application',l:'Open App',i:'📱'},{t:'type_text',l:'Type Text',i:'⌨'},{t:'click_ui_element',l:'Click UI',i:'🖱'}]}
+};
 
-function showState(name) {
-  STATES.forEach(s => {
-    const el = document.getElementById('state-' + s);
-    if (el) el.style.display = s === name ? 'flex' : 'none';
-  });
-  currentState = name;
+// ═══════════ BRIDGE ═══════════
+function bridge(type,payload){
+  var m={type:type};
+  if(payload)for(var k in payload)m[k]=payload[k];
+  if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.mirrorBridge)
+    window.webkit.messageHandlers.mirrorBridge.postMessage(m);
+  else console.log('Bridge:',type,payload);
 }
 
-function bridge(type, payload) {
-  var msg = {type: type};
-  if (payload) { for (var k in payload) { msg[k] = payload[k]; } }
-  window.webkit.messageHandlers.mirrorBridge.postMessage(msg);
+// ═══════════ VIEWS ═══════════
+function showView(v){
+  ['idle','recording','analyzing','review','deployed','editor'].forEach(function(s){
+    var el=document.getElementById('view-'+s);
+    if(el)el.classList.toggle('hidden',s!==v);
+  });
+  state=v;
+  if(v==='editor')initEditor();
+  if(v==='idle')bridge('workflow.list');
 }
 
-function startRecording() { bridge('recording.start'); }
-function stopRecording() { bridge('recording.stop'); }
-function exportN8n() { bridge('workflow.export.n8n'); }
+// ═══════════ RECORDING ═══════════
+function startRecording(){bridge('recording.start')}
+function stopRecording(){bridge('recording.stop')}
 
-function deployWorkflow() {
-  if (!currentWorkflow) return;
-  var schedule = document.getElementById('schedule-select').value;
-  var name = document.getElementById('workflow-name-input').value;
-  var steps = [];
-  var toggles = document.querySelectorAll('.step-toggle');
-  toggles.forEach(function(t, i) {
-    steps.push({enabled: t.classList.contains('checked'), index: i});
-  });
-  bridge('workflow.deploy', {
-    workflow: {
-      name: name,
-      trigger: {type: schedule === 'manual' ? 'manual' : 'schedule', cron: schedule === 'manual' ? null : schedule},
-      steps: steps
-    }
-  });
+// ═══════════ DEPLOY ═══════════
+function deployWorkflow(){
+  if(!currentWorkflow)return;
+  var sched=document.getElementById('schedule-select').value;
+  var name=document.getElementById('wf-name').value;
+  var steps=[];
+  document.querySelectorAll('#steps-container .step-toggle').forEach(function(t,i){steps.push({enabled:t.classList.contains('on'),index:i})});
+  bridge('workflow.deploy',{workflow:{name:name,trigger:{type:sched==='manual'?'manual':'schedule',cron:sched==='manual'?null:sched},steps:steps}});
 }
 
-window.mirror = {
-  showRecordingState: function() {
-    showState('recording');
-    document.getElementById('event-count').textContent = '0';
-    document.getElementById('duration-display').textContent = '0:00';
-  },
+// ═══════════ RUN PANEL ═══════════
+function toggleRunPanel(){
+  var p=document.getElementById('run-panel');
+  p.classList.toggle('closed');
+  var h=p.querySelector('.run-header');
+  h.textContent=(p.classList.contains('closed')?'▶':'▼')+' Run History';
+}
 
-  updateEventCount: function(n) {
-    document.getElementById('event-count').textContent = n;
-  },
+// ═══════════ TOAST ═══════════
+function toast(msg,type){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+type+' show';
+  setTimeout(function(){t.classList.remove('show')},2500);
+}
 
-  updateDuration: function(d) {
-    document.getElementById('duration-display').textContent = d;
-  },
+// ═══════════ WF LIST ═══════════
+function renderWFList(wfs){
+  deployedWorkflows=wfs||[];
+  var el=document.getElementById('wf-list');
+  if(!wfs||!wfs.length){el.innerHTML='<div style="color:var(--t3);font-size:13px;text-align:center;padding:20px">No automations yet</div>';renderSBWorkflows();return}
+  var h='';
+  wfs.forEach(function(w){
+    var sched=w.trigger&&w.trigger.description?w.trigger.description:'Manual';
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="openWF(\''+w.id+'\',\''+escapeHtml(w.name)+'\')">'+
+      '<div><div style="font-size:13px;font-weight:500">'+escapeHtml(w.name)+'</div><div style="font-size:11px;color:var(--t3)">'+escapeHtml(sched)+'</div></div>'+
+      '<div style="font-size:11px;padding:2px 8px;border-radius:4px;background:'+(w.enabled?'rgba(34,197,94,0.15)':'rgba(148,163,184,0.15)')+';color:'+(w.enabled?'var(--green)':'var(--t3)')+'">'+(w.enabled?'Active':'Paused')+'</div></div>';
+  });
+  el.innerHTML=h;
+  renderSBWorkflows();
+}
+function renderSBWorkflows(){
+  var el=document.getElementById('sb-workflows');
+  if(!el)return;
+  if(!deployedWorkflows.length){el.innerHTML='<div style="color:var(--t3);font-size:11px;padding:6px 12px">None</div>';return}
+  var h='';
+  deployedWorkflows.forEach(function(w){
+    h+='<div class="sb-item2" onclick="openWF(\''+w.id+'\',\''+escapeHtml(w.name)+'\')"><span>'+escapeHtml(w.name)+'</span><span class="wf-status">'+(w.enabled?'Active':'Paused')+'</span></div>';
+  });
+  el.innerHTML=h;
+}
+function openWF(id,name){
+  document.getElementById('wf-name').value=name;
+  wfId=id;
+  showView('editor');
+  bridge('editor.runHistory');
+}
+function escapeHtml(t){var d=document.createElement('div');d.textContent=t||'';return d.innerHTML}
 
-  showAnalyzingState: function(summary) {
-    showState('analyzing');
-    document.getElementById('analyzing-status').textContent = 'Reading your recording...';
-    document.getElementById('progress-fill').style.width = '5%';
-  },
+// ═══════════ EDITOR ═══════════
+function initEditor(){
+  var pal=document.getElementById('node-palette');
+  var h='';
+  Object.keys(edNodeTypes).forEach(function(cat){
+    var c=edNodeTypes[cat];
+    h+='<div class="sb-title">'+cat.replace(/([A-Z])/g,' $1').replace(/^./,function(s){return s.toUpperCase()})+'</div>';
+    c.items.forEach(function(n){
+      h+='<div class="sb-item" draggable="true" ondragstart="dragFromPalette(event,\''+n.t+'\',\''+n.l+'\',\''+n.i+'\',\''+cat+'\')"><div class="sb-dot" style="background:'+c.color+'"></div>'+n.i+' '+n.l+'</div>';
+    });
+  });
+  pal.innerHTML=h;
+  renderEditor();
+}
 
-  updateAnalysisProgress: function(pct, status) {
-    document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('analyzing-status').textContent = status;
-  },
+function dragFromPalette(e,t,l,i,cat){
+  e.dataTransfer.setData('text/plain',JSON.stringify({t:t,l:l,i:i,c:cat}));
+}
 
-  showReviewState: function(workflow) {
-    currentWorkflow = workflow;
-    showState('review');
+var editorCanvas=document.getElementById('editor-canvas');
+var editorSVG=document.getElementById('editor-svg');
 
-    document.getElementById('workflow-name-input').value = workflow.name || 'My Automation';
+editorCanvas.addEventListener('dragover',function(e){e.preventDefault()});
+editorCanvas.addEventListener('drop',function(e){
+  e.preventDefault();
+  var d=JSON.parse(e.dataTransfer.getData('text/plain'));
+  var r=editorCanvas.getBoundingClientRect();
+  var x=(e.clientX-r.left-panOff.x)/zoom;
+  var y=(e.clientY-r.top-panOff.y)/zoom;
+  editNodes.push({id:'n'+Date.now(),type:d.t,label:d.l,icon:d.i,category:d.c,x:x-120,y:y-40,confidence:0.7,execType:d.c==='desktop'?'desktop':'cloud'});
+  renderEditor();
+});
 
-    var conf = workflow.confidence || 0;
-    var confPct = Math.round(conf * 100);
-    var confFill = document.getElementById('confidence-fill');
-    confFill.style.width = confPct + '%';
-    confFill.style.background = conf >= 0.75 ? '#22c55e' : conf >= 0.5 ? '#eab308' : '#ef4444';
-    document.getElementById('confidence-pct').textContent = confPct + '%';
-
-    var scheduleSelect = document.getElementById('schedule-select');
-    if (workflow.trigger && workflow.trigger.cron) {
-      scheduleSelect.value = workflow.trigger.cron;
+// Pan/zoom
+editorCanvas.addEventListener('mousedown',function(e){
+  if(e.target===editorSVG||e.target===editorCanvas){
+    panning=true;panStart={x:e.clientX-panOff.x,y:e.clientY-panOff.y};
+  }
+});
+window.addEventListener('mousemove',function(e){
+  if(panning){panOff={x:e.clientX-panStart.x,y:e.clientY-panStart.y};renderEditor()}
+  if(dragNode){
+    var r=editorCanvas.getBoundingClientRect();
+    editNodes.find(function(n){return n.id===dragNode}).x=(e.clientX-r.left-panOff.x)/zoom-dragOff.x;
+    editNodes.find(function(n){return n.id===dragNode}).y=(e.clientY-r.top-panOff.y)/zoom-dragOff.y;
+    renderEditor();
+  }
+  if(connecting){
+    var r=editorCanvas.getBoundingClientRect();
+    connecting.ex=(e.clientX-r.left-panOff.x)/zoom;
+    connecting.ey=(e.clientY-r.top-panOff.y)/zoom;
+    renderEditor();
+  }
+});
+window.addEventListener('mouseup',function(e){
+  if(panning){panning=false}
+  if(dragNode){dragNode=null}
+  if(connecting){
+    // Check if dropped on a node handle
+    var r=editorCanvas.getBoundingClientRect();
+    var mx=(e.clientX-r.left-panOff.x)/zoom,my=(e.clientY-r.top-panOff.y)/zoom;
+    var target=editNodes.find(function(n){
+      return Math.abs(mx-(n.x+240))<15&&Math.abs(my-(n.y+50))<15&&n.id!==connecting.sid;
+    });
+    if(target){
+      editEdges.push({id:'e'+Date.now(),from:connecting.sid,to:target.id,label:''});
     }
+    connecting=null;
+    renderEditor();
+  }
+});
+editorCanvas.addEventListener('wheel',function(e){
+  e.preventDefault();
+  var dz=e.deltaY>0?0.9:1.1;
+  zoom=Math.max(0.2,Math.min(3,zoom*dz));
+  renderEditor();
+});
 
-    var container = document.getElementById('steps-container');
-    container.innerHTML = '';
-    var steps = workflow.steps || [];
-    var reviewIds = workflow.requiresReview || [];
-    var actionLabels = {
-      open_url: 'Open URL', open_application: 'Open App', type_text: 'Type Text',
-      press_shortcut: 'Press Shortcut', click: 'Click', wait: 'Wait',
-      copy_clipboard: 'Copy to Clipboard', paste_text: 'Paste', extract_data: 'Extract Data',
-      web_request: 'HTTP Request', send_email: 'Send Email', file_read: 'Read File',
-      file_write: 'Write File', run_script: 'Run Script', screenshot: 'Screenshot',
-      condition: 'Condition', transform: 'Transform Data',
-      gmail_send: 'Gmail Send', gmail_search: 'Gmail Search',
-      sheets_append: 'Sheets Append', sheets_read: 'Sheets Read'
-    };
+function renderEditor(){
+  var svg=editorSVG;
+  var w=editorCanvas.clientWidth,h=editorCanvas.clientHeight;
+  svg.setAttribute('viewBox',(-panOff.x/zoom)+' '+(-panOff.y/zoom)+' '+(w/zoom)+' '+(h/zoom));
+  svg.style.width=w+'px';svg.style.height=h+'px';
 
-    // Execution summary
-    var cloudCount = steps.filter(function(s) { return s.executionType === 'cloud'; }).length;
-    var localCount = steps.length - cloudCount;
-    if (steps.length > 0) {
-      var summary = document.createElement('div');
-      summary.className = 'exec-summary';
-      var parts = [];
-      if (cloudCount > 0) parts.push(cloudCount + ' cloud step' + (cloudCount !== 1 ? 's' : ''));
-      if (localCount > 0) parts.push(localCount + ' local step' + (localCount !== 1 ? 's' : ''));
-      summary.textContent = parts.join(', ') + ' — cloud steps run via API (reliable, even when Mac is asleep)';
-      container.appendChild(summary);
-    }
+  var html='<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#475569"/></marker></defs>';
 
-    for (var i = 0; i < steps.length; i++) {
-      var step = steps[i];
-      var needsReview = reviewIds.indexOf(step.id) >= 0 || reviewIds.indexOf(step.action) >= 0 || step.requiresReview;
-      var actionLabel = actionLabels[step.action] || step.action;
-      var execBadge = step.executionType === 'cloud'
-        ? '<span class="exec-badge exec-cloud">Cloud</span>'
-        : '<span class="exec-badge exec-local">Local</span>';
-      var card = document.createElement('div');
-      card.className = 'step-card' + (needsReview ? ' review-required' : '');
+  // Edges
+  editEdges.forEach(function(e){
+    var from=editNodes.find(function(n){return n.id===e.from});
+    var to=editNodes.find(function(n){return n.id===e.to});
+    if(!from||!to)return;
+    var x1=from.x+240,y1=from.y+50,x2=to.x,y2=to.y+50;
+    var mx=(x1+x2)/2;
+    html+='<path d="M'+x1+','+y1+' C'+mx+','+y1+' '+mx+','+y2+' '+x2+','+y2+'" class="cv-edge" marker-end="url(#arrow)" onclick="deleteEdge(event,\''+e.id+'\')"/>';
+  });
 
-      var html = '<button class="step-toggle checked" onclick="toggleStep(this)"></button>';
-      html += '<div class="step-body">';
-      html += '<div class="step-action">' + escapeHtml(actionLabel) + execBadge + '</div>';
-      html += '<div class="step-desc">' + escapeHtml(step.description || '') + '</div>';
-      if (step.inputFrom) html += '<div class="step-data-flow">\u2190 Input from: ' + escapeHtml(step.inputFrom) + '</div>';
-      if (step.outputAs) html += '<div class="step-data-flow">\u2192 Output as: {{' + escapeHtml(step.outputAs) + '}}</div>';
-      if (needsReview) html += '<div class="step-review-badge">\u26A0 Review before run</div>';
-      html += '</div>';
+  // Connecting line
+  if(connecting){
+    var fn=editNodes.find(function(n){return n.id===connecting.sid});
+    if(fn)html+='<line x1="'+(fn.x+240)+'" y1="'+(fn.y+50)+'" x2="'+connecting.ex+'" y2="'+connecting.ey+'" stroke="#6366f1" stroke-width="2" stroke-dasharray="6,3"/>';
+  }
 
-      card.innerHTML = html;
-      container.appendChild(card);
-    }
+  // Nodes
+  editNodes.forEach(function(n){
+    var cat=n.category||'action';
+    var colors={trigger:'#eab308',source:'#3b82f6',transform:'#8b5cf6',decision:'#f59e0b',action:'#22c55e',desktop:'#6b7280'};
+    var c=colors[cat]||'#6b7280';
+    var sel=n.id===selNodeId;
+    html+='<g transform="translate('+n.x+','+n.y+')" class="cv-node '+cat+(sel?' selected':'')+'" onmousedown="nodeMouseDown(event,\''+n.id+'\')" onclick="selectNode(event,\''+n.id+'\')" oncontextmenu="nodeCtx(event,\''+n.id+'\')">';
+    // Body
+    html+='<rect x="0" y="0" width="240" height="80" rx="8"/>';
+    // Header
+    html+='<path d="M0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 L0,32 Z" class="cv-node-header"/>';
+    html+='<text x="12" y="13" font-size="12" fill="'+c+'" font-weight="600">'+(n.icon||'')+' '+n.label+'</text>';
+    if(n.category==='desktop')html+='<text x="220" y="13" font-size="9" fill="#6b7280" text-anchor="end">💻</text>';
+    else html+='<text x="220" y="13" font-size="9" fill="#4ade80" text-anchor="end">☁</text>';
+    // Body text
+    html+='<text x="12" y="52" font-size="11" fill="#94a3b8">'+(n.desc||'Node')+'</text>';
+    // Confidence
+    var conf=n.confidence||0.5;
+    html+='<text x="12" y="68" font-size="10" fill="'+(conf>0.7?'#22c55e':conf>0.5?'#eab308':'#ef4444')+'">'+(conf*100|0)+'%</text>';
+    // Handles
+    html+='<circle cx="0" cy="40" r="5" class="cv-handle" onmousedown="startConnect(event,\''+n.id+'\')" style="cursor:crosshair"/>';
+    html+='<circle cx="240" cy="40" r="5" class="cv-handle" onmousedown="startConnect(event,\''+n.id+'\')" style="cursor:crosshair"/>';
+    html+='</g>';
+  });
+
+  svg.innerHTML=html;
+}
+
+function nodeMouseDown(e,id){
+  if(e.button!==0)return;
+  e.stopPropagation();
+  var n=editNodes.find(function(x){return x.id===id});
+  if(!n)return;
+  dragNode=id;
+  var r=editorCanvas.getBoundingClientRect();
+  dragOff={x:(e.clientX-r.left-panOff.x)/zoom-n.x,y:(e.clientY-r.top-panOff.y)/zoom-n.y};
+}
+
+function selectNode(e,id){
+  e.stopPropagation();
+  selNodeId=id;
+  renderEditor();
+  renderInspector(id);
+}
+
+function startConnect(e,id){
+  e.stopPropagation();
+  var r=editorCanvas.getBoundingClientRect();
+  connecting={sid:id,ex:(e.clientX-r.left-panOff.x)/zoom,ey:(e.clientY-r.top-panOff.y)/zoom};
+}
+
+function deleteEdge(e,id){
+  e.stopPropagation();
+  editEdges=editEdges.filter(function(x){return x.id!==id});
+  renderEditor();
+}
+
+function nodeCtx(e,id){
+  e.preventDefault();
+  selNodeId=id;renderEditor();renderInspector(id);
+  showContext(e.clientX,e.clientY,[
+    {label:'Delete Node',cls:'danger',action:function(){editNodes=editNodes.filter(function(n){return n.id!==id});editEdges=editEdges.filter(function(e){return e.from!==id&&e.to!==id});selNodeId=null;renderEditor();renderInspector(null);hideContext()}},
+  ]);
+}
+
+function showContext(x,y,items){
+  var el=document.getElementById('ctx-menu');
+  if(!el){el=document.createElement('div');el.id='ctx-menu';el.className='ctx';document.body.appendChild(el)}
+  var h='';
+  items.forEach(function(it,i){
+    if(it.sep)h+='<div class="ctx-sep"></div>';
+    else h+='<div class="ctx-item '+ (it.cls||'')+'" onclick="(function(){'+it.action.toString()+'})()">'+it.label+'</div>';
+  });
+  el.innerHTML=h;
+  el.style.left=x+'px';el.style.top=y+'px';
+  el.style.display='block';
+}
+function hideContext(){
+  var el=document.getElementById('ctx-menu');
+  if(el)el.style.display='none';
+}
+document.addEventListener('click',function(){hideContext()});
+
+function renderInspector(id){
+  var insp=document.getElementById('editor-inspector');
+  if(!id){insp.innerHTML='<div class="insp-empty">Click a node to inspect</div>';return}
+  var n=editNodes.find(function(x){return x.id===id});
+  if(!n)return;
+  insp.innerHTML=
+    '<div class="insp-tabs"><button class="insp-tab active">Config</button></div>'+
+    '<div class="insp-body">'+
+    '<div class="insp-s"><div class="insp-l">Node</div><div style="font-size:14px;font-weight:600;margin-bottom:4px">'+n.label+'</div>'+
+    '<span class="badge '+(n.execType==='cloud'?'bg-cloud':'bg-local')+'">'+(n.execType==='cloud'?'☁ Cloud':'💻 Local')+'</span>'+
+    '<span class="badge" style="background:rgba(148,163,184,0.1);color:var(--t2)">'+(n.category||'action')+'</span></div>'+
+    '<div class="insp-s"><div class="insp-l">Confidence</div>'+
+    '<div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:4px"><div style="width:'+(n.confidence*100)+'%;height:100%;background:'+(n.confidence>0.7?'var(--green)':n.confidence>0.5?'var(--yellow)':'var(--red)')+';border-radius:2px"></div></div>'+
+    '<span style="font-size:11px;color:var(--t3)">'+(n.confidence*100|0)+'%</span></div>'+
+    '<div class="insp-actions"><button class="tb-btn danger" onclick="editNodes=editNodes.filter(function(x){return x.id!==\''+id+'\'});editEdges=editEdges.filter(function(e){return e.from!==\''+id+'\'&&e.to!==\''+id+'\'});selNodeId=null;renderEditor();renderInspector(null)" style="width:100%">Delete Node</button></div>'+
+    '</div>';
+}
+
+// ═══════════ WINDOW.MIRROR ═══════════
+window.mirror={
+  showRecordingState:function(){showView('recording');document.getElementById('event-count').textContent='0';document.getElementById('duration').textContent='0:00'},
+  updateEventCount:function(n){document.getElementById('event-count').textContent=n},
+  updateDuration:function(d){document.getElementById('duration').textContent=d},
+  showAnalyzingState:function(s){showView('analyzing');document.getElementById('analyze-status').textContent='Reading...';document.getElementById('progress-bar').style.width='5%'},
+  updateAnalysisProgress:function(pct,status){document.getElementById('progress-bar').style.width=pct+'%';document.getElementById('analyze-status').textContent=status},
+  showReviewState:function(workflow){
+    currentWorkflow=workflow;showView('review');
+    document.getElementById('wf-name').value=workflow.name||'My Automation';
+    var c=workflow.confidence||0,cp=c*100|0;
+    var cf=document.getElementById('conf-fill');cf.style.width=cp+'%';cf.style.background=c>=0.75?'#22c55e':c>=0.5?'#eab308':'#ef4444';
+    document.getElementById('conf-pct').textContent=cp+'%';
+    if(workflow.trigger&&workflow.trigger.cron)document.getElementById('schedule-select').value=workflow.trigger.cron;
+    var cont=document.getElementById('steps-container');cont.innerHTML='';
+    var labels={open_url:'Open URL',open_application:'Open App',type_text:'Type Text',gmail_search:'Gmail Search',gmail_send:'Gmail Send',sheets_append:'Sheets Append',sheets_read:'Sheets Read',extract_data:'Extract Data',send_email:'Send Email',condition:'Condition'};
+    var reviewIds=workflow.requiresReview||[];
+    (workflow.steps||[]).forEach(function(s,i){
+      var needs=reviewIds.indexOf(s.id)>=0||s.requiresReview;
+      var al=labels[s.action]||s.action;
+      var card=document.createElement('div');
+      card.className='step-card'+(needs?' review':'');
+      card.innerHTML='<button class="step-toggle on" onclick="this.classList.toggle(\'on\')"></button>'+
+        '<div class="step-body"><div class="step-action">'+al+'</div><div class="step-desc">'+(s.description||'')+'</div>'+
+        (s.inputFrom?'<div class="step-flow">← Input: '+s.inputFrom+'</div>':'')+
+        (s.outputAs?'<div class="step-flow">→ Output: {{'+s.outputAs+'}}</div>':'')+
+        (needs?'<div class="step-badge review">⚠ Review</div>':'')+'</div>';
+      cont.appendChild(card);
+    });
+    // Build editor graph from workflow steps
+    editNodes=(workflow.steps||[]).map(function(s,i){
+      var cat='action';
+      if(s.executionType==='cloud')cat='action';else cat='desktop';
+      return {id:'s'+i,type:s.action,label:labels[s.action]||s.action,icon:'⬡',category:cat,x:80+i*280,y:200+(i%2)*120,confidence:s.confidence||0.7,execType:s.executionType||'cloud',desc:s.description||''};
+    });
+    editEdges=[];
+    for(var i=0;i<editNodes.length-1;i++)editEdges.push({id:'ce'+i,from:editNodes[i].id,to:editNodes[i+1].id,label:''});
+    if(editNodes.length>0)renderEditor();
+    document.getElementById('btn-deploy-main').style.display='';
   },
-
-  showDeployedState: function(info) {
-    showState('deployed');
-    document.getElementById('deployed-subtitle').textContent = '"' + (info.name || '') + '" is ready and scheduled.';
-    document.getElementById('deployed-schedule').textContent = '\uD83D\uDD50 ' + (info.schedule || 'Manual trigger');
-    spawnConfetti();
+  showDeployedState:function(info){
+    showView('deployed');
+    document.getElementById('deployed-sub').textContent='"'+info.name+'" is ready and scheduled.';
+    document.getElementById('deployed-sched').textContent='🕐 '+info.schedule;
+    document.getElementById('wf-status').textContent='Active';document.getElementById('wf-status').className='status active';
+    bridge('workflow.list');
   },
-
-  showExportSuccess: function(filename) {
-    showToast('\u2713 Exported ' + filename + ' to Downloads', 'success');
+  showError:function(msg){toast(msg,'error');if(state==='analyzing')showView('idle')},
+  showPermissionError:function(a,s){toast((a?'Accessibility':'Screen Recording')+' permission required.','error')},
+  showIdleState:function(){showView('idle')},
+  setWorkflowList:function(wfs){renderWFList(wfs)},
+  showToast:function(msg){toast(msg,'success')},
+  showExportSuccess:function(f){toast('✓ Exported '+f,'success')},
+  setRunHistory:function(runs){
+    runHistory=runs||[];
+    var b=document.getElementById('run-body');
+    if(!runs||!runs.length){b.innerHTML='<div style="color:var(--t3);font-size:12px;text-align:center;padding:40px">No runs yet</div>';return}
+    var h='';
+    runs.slice(0,20).forEach(function(r){
+      var d=new Date(r.startedAt*1000).toLocaleDateString([],{month:'short',day:'numeric'});
+      h+='<div class="run-row"><div class="run-dot '+(r.success?'ok':'fail')+'"></div><span class="run-time">'+d+'</span><span class="run-name">'+(r.workflowName||'')+'</span><span class="run-dur">'+(r.duration||0).toFixed(1)+'s</span><span style="font-size:10px;color:'+(r.success?'var(--green)':'var(--red)')+'">'+(r.success?'✓':'✗')+'</span></div>';
+    });
+    b.innerHTML=h;
+    document.getElementById('run-panel').classList.remove('closed');
+    document.getElementById('run-panel').querySelector('.run-header').textContent='▼ Run History ('+runs.length+')';
   },
-
-  showError: function(msg) {
-    showToast(msg, 'error');
-    if (currentState === 'analyzing') showState('idle');
-  },
-
-  showPermissionError: function(needsAccessibility, needsScreenRecording) {
-    var msg = needsAccessibility ? 'Accessibility permission required.' : 'Screen Recording permission required.';
-    showToast(msg + ' Open Settings to grant access.', 'error');
-  },
-
-  showIdleState: function() {
-    showState('idle');
-  },
-
-  setWorkflowList: function(workflows) {
-    var items = document.getElementById('workflow-items');
-    var empty = document.getElementById('workflow-empty');
-    items.innerHTML = '';
-    if (!workflows || workflows.length === 0) {
-      empty.style.display = 'block';
-      return;
-    }
-    empty.style.display = 'none';
-    for (var i = 0; i < workflows.length; i++) {
-      var w = workflows[i];
-      var item = document.createElement('div');
-      item.className = 'workflow-item';
-      var statusClass = w.enabled ? '' : ' paused';
-      var statusText = w.enabled ? 'Active' : 'Paused';
-      var schedule = (w.trigger && w.trigger.description) ? w.trigger.description : 'Manual';
-      item.innerHTML =
-        '<div><div class="workflow-item-name">' + escapeHtml(w.name) + '</div>' +
-        '<div class="workflow-item-schedule">' + escapeHtml(schedule) + '</div></div>' +
-        '<div class="workflow-item-status' + statusClass + '">' + statusText + '</div>';
-      items.appendChild(item);
-    }
+  setRunDetail:function(d){
+    var b=document.getElementById('run-body');
+    var h='<div style="margin-bottom:8px"><div style="font-size:13px;font-weight:600">'+d.workflowName+'</div><div style="font-size:11px;color:var(--t3)">'+d.summary+' · '+(d.duration||0).toFixed(1)+'s</div></div>';
+    (d.nodeResults||[]).forEach(function(n){
+      h+='<div class="run-row"><div class="run-dot '+(n.status==='success'?'ok':'fail')+'"></div><span class="run-name">'+n.label+'</span><span class="run-dur">'+(n.duration||0).toFixed(1)+'s</span><span style="font-size:10px;color:'+(n.status==='success'?'var(--green)':'var(--red)')+'">'+(n.status==='success'?'✓':'✗')+'</span></div>';
+      if(n.error)h+='<div style="font-size:10px;color:var(--red);padding-left:20px">'+n.error+'</div>';
+    });
+    b.innerHTML=h;
   }
 };
 
-window.mirrorBridge = {
-  receiveMessage: function(msg) {
-    if (msg && msg.type === 'menuBarStartRecording') {
-      showState('idle');
-      setTimeout(startRecording, 100);
-    }
-  }
-};
-
-function toggleStep(btn) {
-  btn.classList.toggle('checked');
-  var card = btn.closest('.step-card');
-  if (card) card.classList.toggle('disabled', !btn.classList.contains('checked'));
-}
-
-function showToast(msg, type) {
-  var toast = document.getElementById('error-toast');
-  toast.textContent = msg;
-  if (type === 'success') {
-    toast.style.background = 'rgba(34,197,94,0.15)';
-    toast.style.borderColor = 'rgba(34,197,94,0.4)';
-    toast.style.color = '#86efac';
-  } else {
-    toast.style.background = 'rgba(239,68,68,0.15)';
-    toast.style.borderColor = 'rgba(239,68,68,0.4)';
-    toast.style.color = '#fca5a5';
-  }
-  toast.classList.add('visible');
-  setTimeout(function() { toast.classList.remove('visible'); }, 4000);
-}
-
-function spawnConfetti() {
-  var colors = ['#6366f1', '#818cf8', '#a5b4fc', '#22c55e', '#ffffff', '#e879f9'];
-  for (var i = 0; i < 42; i++) {
-    var p = document.createElement('div');
-    p.className = 'confetti-particle';
-    var angle = (Math.random() * 360) * (Math.PI / 180);
-    var dist = 120 + Math.random() * 200;
-    p.style.cssText =
-      'left:50%;top:50%;' +
-      'background:' + colors[Math.floor(Math.random() * colors.length)] + ';' +
-      'width:' + (6 + Math.random() * 8) + 'px;' +
-      'height:' + (6 + Math.random() * 8) + 'px;' +
-      '--tx:' + (Math.cos(angle) * dist) + 'px;' +
-      '--ty:' + (Math.sin(angle) * dist) + 'px;' +
-      '--tr:' + (Math.random() * 720 - 360) + 'deg;' +
-      'animation-delay:' + (Math.random() * 0.2) + 's;' +
-      'animation-duration:' + (1.2 + Math.random() * 0.6) + 's;';
-    document.body.appendChild(p);
-    setTimeout(function(el) { el.remove(); }, 2000, p);
-  }
-}
-
-function escapeHtml(text) {
-  var div = document.createElement('div');
-  div.textContent = text || '';
-  return div.innerHTML;
-}
-
-showState('idle');
+// ═══════════ INIT ═══════════
+showView('idle');
 bridge('workflow.list');
+
+// Keyboard shortcuts
+document.addEventListener('keydown',function(e){
+  if(state==='editor'&&(e.key==='Delete'||e.key==='Backspace')&&selNodeId&&document.activeElement===document.body){
+    editNodes=editNodes.filter(function(n){return n.id!==selNodeId});
+    editEdges=editEdges.filter(function(e){return e.from!==selNodeId&&e.to!==selNodeId});
+    selNodeId=null;renderEditor();renderInspector(null);
+  }
+});
 </script>
 </body>
 </html>

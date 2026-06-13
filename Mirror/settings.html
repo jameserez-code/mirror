@@ -322,7 +322,15 @@
       <div class="permission-status">
         <div class="status-dot" id="google-status-dot"></div>
         <button class="btn-permission" id="google-connect-btn" onclick="connectGoogle()">Connect</button>
+        <button class="btn-permission" id="google-test-btn" onclick="testGoogle()" style="display:none">Test</button>
       </div>
+    </div>
+
+    <div id="google-test-results" style="display:none; margin-top:12px; background:var(--bg3); border-radius:8px; padding:12px; font-size:12px;">
+      <div id="google-test-status" style="font-weight:600;margin-bottom:6px"></div>
+      <div id="google-test-gmail" style="color:var(--text2);margin-bottom:3px"></div>
+      <div id="google-test-sheets" style="color:var(--text2);margin-bottom:3px"></div>
+      <div id="google-test-drive" style="color:var(--text2)"></div>
     </div>
 
     <p style="font-size:12px;color:var(--text3);margin-top:16px;line-height:1.6">
@@ -494,6 +502,13 @@ function disconnectGoogle() {
   bridge('integrations.disconnectGoogle');
 }
 
+function testGoogle() {
+  var results = document.getElementById('google-test-results');
+  results.style.display = 'block';
+  document.getElementById('google-test-status').textContent = 'Testing...';
+  bridge('integrations.testGoogle');
+}
+
 function escapeHtml(text) {
   var div = document.createElement('div');
   div.textContent = text || '';
@@ -545,6 +560,7 @@ window.mirror = {
         '<div><div style="font-size:13px;font-weight:500">' + escapeHtml(w.name) + '</div>' +
         '<div style="font-size:11px;color:var(--text3)">' + escapeHtml(schedule) + '</div></div>' +
         '<div class="workflow-settings-actions">' +
+        '<button class="btn-sm" onclick="bridge(\'workflow.runNow\', {id:\'' + w.id + '\'})">Run Now</button>' +
         (w.enabled
           ? '<button class="btn-sm" onclick="bridge(\'workflow.disable\', {id:\'' + w.id + '\'})">Pause</button>'
           : '<button class="btn-sm" onclick="bridge(\'workflow.enable\', {id:\'' + w.id + '\'})">Resume</button>') +
@@ -578,11 +594,28 @@ window.mirror = {
   updateGoogleStatus: function(connected) {
     var dot = document.getElementById('google-status-dot');
     var btn = document.getElementById('google-connect-btn');
+    var testBtn = document.getElementById('google-test-btn');
     if (!dot || !btn) return;
     dot.className = 'status-dot ' + (connected ? 'granted' : 'denied');
     btn.textContent = connected ? 'Disconnect' : 'Connect';
     btn.disabled = false;
     btn.onclick = connected ? disconnectGoogle : connectGoogle;
+    if (testBtn) testBtn.style.display = connected ? '' : 'none';
+    if (!connected) {
+      var results = document.getElementById('google-test-results');
+      if (results) results.style.display = 'none';
+    }
+  },
+
+  showGoogleTestResults: function(results) {
+    var el = document.getElementById('google-test-results');
+    if (!el) return;
+    el.style.display = 'block';
+    document.getElementById('google-test-status').textContent = results.allPassed ? '✓ All services working' : '✗ Some services failed';
+    document.getElementById('google-test-status').style.color = results.allPassed ? '#22c55e' : '#ef4444';
+    document.getElementById('google-test-gmail').textContent = 'Gmail: ' + (results.gmail ? '✓ Connected' : '✗ ' + (results.gmailError || 'Failed'));
+    document.getElementById('google-test-sheets').textContent = 'Sheets: ' + (results.sheets ? '✓ Connected' : '✗ ' + (results.sheetsError || 'Failed'));
+    document.getElementById('google-test-drive').textContent = 'Drive: ' + (results.drive ? '✓ Connected' : '✗ ' + (results.driveError || 'Failed'));
   },
 
   showKeyTestResult: function(success) {
@@ -591,6 +624,10 @@ window.mirror = {
     } else {
       showErrorToast('API key is invalid or network error');
     }
+  },
+
+  showToast: function(msg) {
+    showToastMsg(msg);
   }
 };
 
