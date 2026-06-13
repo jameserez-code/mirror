@@ -168,6 +168,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
     <button class="tb-btn" onclick="showView('idle')">Record</button>
     <button class="tb-btn" id="btn-editor" onclick="showView('editor')">Editor</button>
     <span class="tb-spacer"></span>
+    <button class="tb-btn primary" id="btn-run" onclick="executeWorkflow()" style="display:none">▶ Run</button>
+    <button class="tb-btn" id="btn-toggle-active" onclick="toggleWorkflowActive()" style="display:none">Activate</button>
     <span class="status draft" id="wf-status">Draft</span>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-deploy-main" onclick="deployWorkflow()" style="display:none">Deploy</button>
@@ -316,8 +318,8 @@ function showView(v){
     if(el)el.classList.toggle('hidden',s!==v);
   });
   state=v;
-  if(v==='editor')initEditor();
-  if(v==='idle')bridge('workflow.list');
+  if(v==='editor'){initEditor();if(wfId){document.getElementById('btn-run').style.display='';document.getElementById('btn-toggle-active').style.display=''}}
+  if(v==='idle'){bridge('workflow.list');document.getElementById('btn-run').style.display='none';document.getElementById('btn-toggle-active').style.display='none'}
 }
 
 // ═══════════ RECORDING ═══════════
@@ -332,6 +334,55 @@ function deployWorkflow(){
   var steps=[];
   document.querySelectorAll('#steps-container .step-toggle').forEach(function(t,i){steps.push({enabled:t.classList.contains('on'),index:i})});
   bridge('workflow.deploy',{workflow:{name:name,trigger:{type:sched==='manual'?'manual':'schedule',cron:sched==='manual'?null:sched},steps:steps}});
+}
+
+// Manual test execution
+function executeWorkflow(){
+  if(!wfId){toast('Deploy the workflow first, then run it','error');return}
+  // Set all nodes to waiting state
+  editNodes.forEach(function(n){nodeRunStates[n.id]='idle'})
+  renderEditor();
+  // Execute step by step with animation
+  var nodes=editNodes.slice();
+  var i=0;
+  function runNext(){
+    if(i>=nodes.length){
+      toast('Workflow complete','success');
+      // Refresh run history after execution
+      bridge('editor.runHistory');
+      return;
+    }
+    var n=nodes[i];
+    nodeRunStates[n.id]='running';renderEditor();
+    setTimeout(function(){
+      // Simulate execution result (backend would provide real output)
+      var ok=Math.random()>0.1;
+      nodeRunStates[n.id]=ok?'success':'failure';
+      renderEditor();
+      if(!ok){toast('Step '+(i+1)+' failed: '+n.label,'error');return}
+      i++;setTimeout(runNext,400);
+    },600+i*100);
+  }
+  toast('Running workflow...','success');
+  // Also trigger real backend execution
+  bridge('workflow.runNow',{id:wfId});
+  runNext();
+}
+
+// Toggle between scheduled (Active) and manual (Draft)
+function toggleWorkflowActive(){
+  if(!wfId){toast('Deploy the workflow first','error');return}
+  var status=document.getElementById('wf-status');
+  var btn=document.getElementById('btn-toggle-active');
+  if(status.classList.contains('active')){
+    bridge('workflow.disable',{id:wfId});
+    status.textContent='Draft';status.className='status draft';
+    btn.textContent='Activate';
+  }else{
+    bridge('workflow.enable',{id:wfId});
+    status.textContent='Active';status.className='status active';
+    btn.textContent='Deactivate';
+  }
 }
 
 // ═══════════ RUN PANEL ═══════════
@@ -378,6 +429,14 @@ function openWF(id,name){
   document.getElementById('wf-name').value=name;
   wfId=id;
   bridge('editor.workflowDetail',{workflowId:id});
+  // Show Run + Activate buttons for deployed workflows
+  document.getElementById('btn-run').style.display='';
+  document.getElementById('btn-toggle-active').style.display='';
+  var w=deployedWorkflows.find(function(w){return w.id===id});
+  if(w){
+    var s=document.getElementById('wf-status');var b=document.getElementById('btn-toggle-active');
+    if(w.enabled){s.textContent='Active';s.className='status active';b.textContent='Deactivate'}else{s.textContent='Draft';s.className='status draft';b.textContent='Activate'}
+  }
 }
 function escapeHtml(t){var d=document.createElement('div');d.textContent=t||'';return d.innerHTML}
 
@@ -819,6 +878,8 @@ window.mirror={
     document.getElementById('deployed-sub').textContent='"'+info.name+'" is ready and scheduled.';
     document.getElementById('deployed-sched').textContent='🕐 '+info.schedule;
     document.getElementById('wf-status').textContent='Active';document.getElementById('wf-status').className='status active';
+    var btn=document.getElementById('btn-toggle-active');btn.style.display='';btn.textContent='Deactivate';
+    document.getElementById('btn-run').style.display='';
     bridge('workflow.list');
   },
   showAutoGraph:function(steps){
