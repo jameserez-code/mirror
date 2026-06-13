@@ -293,6 +293,11 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         case "editor.runHistory":
             sendRunHistory(to: targetWebView ?? webView!)
 
+        case "editor.workflowDetail":
+            if let wfId = body["workflowId"] as? String {
+                sendWorkflowDetail(workflowId: wfId, to: targetWebView ?? webView!)
+            }
+
         case "editor.workflowHealth":
             if let wfId = body["workflowId"] as? String {
                 sendWorkflowHealth(workflowId: wfId, to: targetWebView ?? webView!)
@@ -732,6 +737,18 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     }
 
     // MARK: - Editor Data Senders
+
+    private func sendWorkflowDetail(workflowId: String, to webView: WKWebView) {
+        guard let wf = workflowEngine?.getWorkflow(id: workflowId) else { return }
+        let steps = wf.workflow.steps.map { step -> [String: Any] in
+            [
+                "id": step.id, "action": step.action, "description": step.description,
+                "confidence": 0.85, "executionType": "cloud",
+                "inputFrom": step.inputFrom ?? "", "outputAs": step.outputAs ?? ""
+            ]
+        }
+        callJS(on: webView, "window.mirror.showAutoGraph", args: [steps])
+    }
 
     private func sendRunHistory(to webView: WKWebView) {
         let runs = RunHistoryStore.shared.all().map { run -> [String: Any] in
