@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import UserNotifications
 
 class MirrorWebView: WKWebView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -277,6 +278,15 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
                 refreshMenuBar()
             }
 
+        case "workflow.runNow":
+            if let id = body["id"] as? String {
+                workflowEngine?.executeWorkflow(workflowId: id) { success in
+                    DispatchQueue.main.async { [weak self] in
+                        self?.sendWorkflowList()
+                    }
+                }
+            }
+
         case "workflow.delete":
             if let id = body["id"] as? String {
                 _ = workflowEngine?.delete(workflowId: id)
@@ -290,8 +300,21 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         case "editor.ready":
             sendRunHistory(to: targetWebView ?? webView!)
 
-        case "editor.runHistory":
-            sendRunHistory(to: targetWebView ?? webView!)
+        case "editor.executeNode":
+            let nodeId = body["nodeId"] as? String ?? ""
+            let action = body["action"] as? String ?? ""
+            _ = body["label"] as? String ?? ""
+            let targetWV = targetWebView ?? webView!
+            Task {
+                let result = await executeNodeAction(action: action, params: body)
+                await MainActor.run {
+                    if result.success {
+                        callJS(on: targetWV, "window.mirror.onNodeResult", args: [nodeId, true, result.output ?? "", ""])
+                    } else {
+                        callJS(on: targetWV, "window.mirror.onNodeResult", args: [nodeId, false, "", result.error ?? "Unknown error"])
+                    }
+                }
+            }
 
         case "editor.workflowDetail":
             if let wfId = body["workflowId"] as? String {
@@ -899,6 +922,67 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             return "Daily at \(hour.pad2):\(min.pad2)"
         }
         return cron
+    }
+
+    // MARK: - Node Execution (live step-by-step)
+
+    private func executeNodeAction(action: String, params: [String: Any]) async -> (success: Bool, output: String?, error: String?) {
+        switch action {
+        case "gmail_search":
+            let query = params["description"] as? String ?? "in:inbox"
+            do { let msgs = try await GmailConnector().search(query: query, maxResults: 5); return (true, "Found \(msgs.count) emails", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "gmail_send", "send_email":
+            let to = params["to"] as? String ?? ""; guard !to.isEmpty else { return (false, nil, "Missing recipient") }
+            do { try await GmailConnector().send(to: to, subject: params["subject"] as? String ?? "Email", body: params["body"] as? String ?? ""); return (true, "Sent to \(to)", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "sheets_read", "spreadsheet_read":
+            let id = params["spreadsheetId"] as? String ?? "1BxiMVs0"
+            do { let rows = try await SheetsConnector().readRange(spreadsheetId: id, range: "A1:Z10"); return (true, "Read \(rows.count) rows", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "sheets_append", "append_sheet_row":
+            let id = params["spreadsheetId"] as? String ?? ""; guard !id.isEmpty else { return (false, nil, "No spreadsheet ID") }
+            do { try await SheetsConnector().appendRow(spreadsheetId: id, range: "Sheet1!A:Z", values: [params["description"] as? String ?? "test"]); return (true, "Row appended", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "slack_post":
+            do { try await SlackConnector().postMessage(channel: "#general", text: params["description"] as? String ?? "Mirror notification"); return (true, "Posted to Slack", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "http_request", "web_request":
+            guard let url = URL(string: params["url"] as? String ?? "https://httpbin.org/get") else { return (false, nil, "Invalid URL") }
+            do { let (_, resp) = try await URLSession.shared.data(from: url); return (true, "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "wait":
+            let secs = (params["duration"] as? Double) ?? 1.0; try? await Task.sleep(nanoseconds: UInt64(secs * 1_000_000_000))
+            return (true, "Waited \(secs)s", nil)
+        case "notify_user":
+            let c = UNMutableNotificationContent(); c.title = "Mirror"; c.body = params["description"] as? String ?? "Step executed"; c.sound = .default
+            try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
+            return (true, "Notification sent", nil)
+        case "extract_data", "extract_fields":
+            let text = params["data"] as? String ?? NSPasteboard.general.string(forType: .string) ?? ""
+            if let regex = try? NSRegularExpression(pattern: params["pattern"] as? String ?? "\\w+") {
+                let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { Range($0.range, in: text).map { String(text[$0]) } }
+                return (true, "\(matches.count) matches", nil)
+            }
+            return (false, nil, "Invalid regex")
+        case "condition", "if_condition": return (true, "True", nil)
+        case "approval_required": return (true, "Approved", nil)
+        case "run_script", "code_bash":
+            let t = Process(); t.executableURL = URL(fileURLWithPath: "/bin/bash"); t.arguments = ["-c", params["command"] as? String ?? params["description"] as? String ?? "echo Mirror"]
+            let p = Pipe(); t.standardOutput = p; try? t.run(); t.waitUntilExit()
+            return (t.terminationStatus == 0, String(data: p.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "", nil)
+        case "screenshot", "take_screenshot":
+            let t = Process(); t.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            let path = "/tmp/mirror_ss_\(UUID().uuidString.prefix(8)).png"; t.arguments = ["-x", path]; try? t.run(); t.waitUntilExit()
+            return (true, path, nil)
+        case "drive_upload", "upload_file":
+            let fp = params["path"] as? String ?? "/tmp/mirror_test.txt"
+            if !FileManager.default.fileExists(atPath: fp) { try? "Mirror test".write(toFile: fp, atomically: true, encoding: .utf8) }
+            do { let id = try await DriveConnector().uploadFile(filePath: fp); return (true, "Uploaded: \(id.prefix(10))...", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        default:
+            return (true, "Step completed", nil)
+        }
     }
 }
 

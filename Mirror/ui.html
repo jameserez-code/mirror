@@ -88,6 +88,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
 .cv-node.monitor .cv-node-header{fill:rgba(239,68,68,0.08)}
 .cv-node.rss .cv-node-header{fill:rgba(249,115,22,0.08)}
 .cv-node.weather .cv-node-header{fill:rgba(14,165,233,0.08)}
+.cv-node.crm .cv-node-header{fill:rgba(37,99,235,0.08)}
+.cv-node.emailmktg .cv-node-header{fill:rgba(244,114,182,0.08)}
+.cv-node.analytics .cv-node-header{fill:rgba(249,115,22,0.08)}
+.cv-node.iot .cv-node-header{fill:rgba(132,204,22,0.08)}
+.cv-node.maps .cv-node-header{fill:rgba(6,182,212,0.08)}
+.cv-node.forms .cv-node-header{fill:rgba(167,139,250,0.08)}
+.cv-node.support .cv-node-header{fill:rgba(20,184,166,0.08)}
+.cv-node.events .cv-node-header{fill:rgba(236,72,153,0.08)}
+.cv-node.search .cv-node-header{fill:rgba(139,92,246,0.08)}
+.cv-node.llm .cv-node-header{fill:rgba(168,85,247,0.08)}
+.cv-node.cloud .cv-node-header{fill:rgba(6,182,212,0.08)}
 .cv-edge{stroke:var(--t3);stroke-width:2;fill:none;transition:stroke var(--transition)}
 .cv-edge:hover{stroke:var(--t2)}
 .cv-handle{fill:var(--accent);stroke:var(--bg2);stroke-width:2;cursor:crosshair;r:5;transition:r var(--transition),opacity var(--transition)}
@@ -228,6 +239,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
     <span class="tb-spacer"></span>
     <button class="tb-btn primary" id="btn-run" onclick="executeWorkflow()" style="display:none">▶ Run</button>
     <button class="tb-btn" id="btn-toggle-active" onclick="toggleWorkflowActive()" style="display:none">Activate</button>
+    <button class="tb-btn" id="btn-export" onclick="exportN8n()" style="display:none" title="Export for n8n">⬇ Export</button>
     <span class="status draft" id="wf-status">Draft</span>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-deploy-main" onclick="deployWorkflow()" style="display:none">Deploy</button>
@@ -521,10 +533,79 @@ var edNodeTypes={
     {t:'weather_current',l:'Current Weather',i:'🌤',d:'Get current weather'},
     {t:'weather_forecast',l:'Weather Forecast',i:'🌦',d:'Get weather forecast'},
     {t:'weather_alert',l:'Weather Alert',i:'⚠',d:'Alert on severe weather'}
+  ]},
+  crm:{color:'#2563eb',items:[
+    {t:'salesforce_lead',l:'Salesforce Lead',i:'☁',d:'Create Salesforce lead',p:'salesforce'},
+    {t:'salesforce_contact',l:'SF Contact',i:'👤',d:'Manage Salesforce contacts',p:'salesforce'},
+    {t:'pipedrive_deal',l:'Pipedrive Deal',i:'💼',d:'Create Pipedrive deal',p:'pipedrive'},
+    {t:'zoho_lead',l:'Zoho Lead',i:'Z',d:'Create Zoho CRM lead',p:'zoho'},
+    {t:'hubspot_deal',l:'HubSpot Deal',i:'⚡',d:'Create HubSpot deal',p:'hubspot'}
+  ]},
+  emailmktg:{color:'#f472b6',items:[
+    {t:'mailchimp_campaign',l:'Mailchimp Campaign',i:'🐵',d:'Create Mailchimp campaign',p:'mailchimp'},
+    {t:'mailchimp_subscriber',l:'Mailchimp Sub',i:'📧',d:'Add/update subscriber',p:'mailchimp'},
+    {t:'sendgrid_send',l:'SendGrid Send',i:'📨',d:'Send transactional email',p:'sendgrid'},
+    {t:'convertkit_tag',l:'ConvertKit Tag',i:'🏷',d:'Tag ConvertKit subscriber',p:'convertkit'}
+  ]},
+  analytics:{color:'#f97316',items:[
+    {t:'ga_report',l:'GA Report',i:'📊',d:'Fetch Google Analytics report',p:'google'},
+    {t:'mixpanel_event',l:'Mixpanel Event',i:'📈',d:'Track Mixpanel event',p:'mixpanel'},
+    {t:'amplitude_export',l:'Amplitude Export',i:'📉',d:'Export Amplitude data',p:'amplitude'},
+    {t:'metabase_query',l:'Metabase Query',i:'🔍',d:'Run Metabase question',p:'metabase'}
+  ]},
+  iot:{color:'#84cc16',items:[
+    {t:'mqtt_publish',l:'MQTT Publish',i:'📤',d:'Publish MQTT message'},
+    {t:'mqtt_subscribe',l:'MQTT Subscribe',i:'📥',d:'Subscribe to MQTT topic'},
+    {t:'device_webhook',l:'Device Webhook',i:'🔌',d:'Receive IoT device data'}
+  ]},
+  maps:{color:'#06b6d4',items:[
+    {t:'geocode',l:'Geocode',i:'📍',d:'Convert address to coordinates'},
+    {t:'reverse_geocode',l:'Reverse Geocode',i:'🗺',d:'Coordinates to address'},
+    {t:'directions',l:'Directions',i:'🧭',d:'Get route between points'},
+    {t:'places_search',l:'Places Search',i:'🔍',d:'Search nearby places'}
+  ]},
+  forms:{color:'#a78bfa',items:[
+    {t:'typeform_webhook',l:'Typeform Hook',i:'📋',d:'Receive Typeform response',p:'typeform'},
+    {t:'gform_webhook',l:'Google Forms',i:'📝',d:'Receive Google Form response',p:'google'},
+    {t:'survey_analyze',l:'Survey Analyze',i:'📊',d:'Analyze survey results'}
+  ]},
+  support:{color:'#14b8a6',items:[
+    {t:'zendesk_ticket',l:'Zendesk Ticket',i:'🎫',d:'Create Zendesk ticket',p:'zendesk'},
+    {t:'zendesk_update',l:'Zendesk Update',i:'✏',d:'Update Zendesk ticket',p:'zendesk'},
+    {t:'intercom_msg',l:'Intercom Message',i:'💬',d:'Send Intercom message',p:'intercom'},
+    {t:'freshdesk_ticket',l:'Freshdesk Ticket',i:'🎫',d:'Create Freshdesk ticket',p:'freshdesk'}
+  ]},
+  events:{color:'#ec4899',items:[
+    {t:'kafka_produce',l:'Kafka Produce',i:'📤',d:'Produce Kafka message',p:'kafka'},
+    {t:'kafka_consume',l:'Kafka Consume',i:'📥',d:'Consume Kafka messages',p:'kafka'},
+    {t:'rabbitmq_publish',l:'RabbitMQ Publish',i:'🐰',d:'Publish to RabbitMQ',p:'rabbitmq'},
+    {t:'websocket_connect',l:'WebSocket',i:'🔌',d:'Connect to WebSocket'},
+    {t:'redis_pub',l:'Redis Pub',i:'📡',d:'Publish to Redis channel',p:'redis'}
+  ]},
+  search:{color:'#8b5cf6',items:[
+    {t:'elasticsearch_query',l:'Elasticsearch',i:'🔍',d:'Query Elasticsearch',p:'elasticsearch'},
+    {t:'algolia_index',l:'Algolia Index',i:'🔎',d:'Index in Algolia',p:'algolia'},
+    {t:'meilisearch_add',l:'Meilisearch Add',i:'🔍',d:'Add document to Meilisearch',p:'meilisearch'}
+  ]},
+  llm:{color:'#a855f7',items:[
+    {t:'openai_chat',l:'OpenAI Chat',i:'🤖',d:'Chat with GPT-4/4o',p:'openai'},
+    {t:'claude_chat',l:'Claude Chat',i:'🧠',d:'Chat with Claude',p:'anthropic'},
+    {t:'huggingface_infer',l:'HF Inference',i:'🤗',d:'Run Hugging Face model',p:'huggingface'},
+    {t:'replicate_run',l:'Replicate Run',i:'🔄',d:'Run Replicate model',p:'replicate'},
+    {t:'pinecone_query',l:'Pinecone Query',i:'🌲',d:'Vector search Pinecone',p:'pinecone'},
+    {t:'embeddings_gen',l:'Generate Embeddings',i:'🧬',d:'Generate text embeddings'},
+    {t:'rag_query',l:'RAG Query',i:'📚',d:'Retrieval-augmented generation'}
+  ]},
+  cloud:{color:'#06b6d4',items:[
+    {t:'lambda_invoke',l:'AWS Lambda',i:'λ',d:'Invoke AWS Lambda function',p:'aws'},
+    {t:'vercel_deploy',l:'Vercel Deploy',i:'▲',d:'Trigger Vercel deploy',p:'vercel'},
+    {t:'docker_run',l:'Docker Run',i:'🐳',d:'Run Docker container'},
+    {t:'k8s_scale',l:'K8s Scale',i:'☸',d:'Scale Kubernetes deployment',p:'kubernetes'},
+    {t:'cloudflare_purge',l:'CF Purge Cache',i:'🌩',d:'Purge Cloudflare cache',p:'cloudflare'}
   ]}
 };
 
-var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop',calendar:'Calendar',database:'Databases',finance:'Finance',social:'Social & Chat',cms:'CMS & E-Commerce',media:'Media & PDF',devtools:'Dev Tools',storage:'Cloud Storage',monitor:'Monitoring',rss:'RSS & Feeds',weather:'Weather'};
+var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop',calendar:'Calendar',database:'Databases',finance:'Finance',social:'Social & Chat',cms:'CMS & E-Commerce',media:'Media & PDF',devtools:'Dev Tools',storage:'Cloud Storage',monitor:'Monitoring',rss:'RSS & Feeds',weather:'Weather',crm:'CRM',emailmktg:'Email Marketing',analytics:'Analytics',iot:'IoT & Devices',maps:'Maps & Geo',forms:'Forms & Surveys',support:'Customer Support',events:'Events & Streaming',search:'Search',llm:'LLMs & AI Models',cloud:'Cloud & Infra'};
 
 // Centralized action → {category, icon, label} mapper
 function getNodeInfo(a){
@@ -563,7 +644,29 @@ function getNodeInfo(a){
     // RSS
     rss_fetch:{c:'rss',i:'📡',l:'RSS Read'},rss_filter:{c:'rss',i:'🔍',l:'RSS Filter'},rss_notify:{c:'rss',i:'🔔',l:'RSS Notify'},
     // Weather
-    weather_current:{c:'weather',i:'🌤',l:'Current Weather'},weather_forecast:{c:'weather',i:'🌦',l:'Weather Forecast'},weather_alert:{c:'weather',i:'⚠',l:'Weather Alert'}
+    weather_current:{c:'weather',i:'🌤',l:'Current Weather'},weather_forecast:{c:'weather',i:'🌦',l:'Weather Forecast'},weather_alert:{c:'weather',i:'⚠',l:'Weather Alert'},
+    // CRM
+    salesforce_lead:{c:'crm',i:'☁',l:'Salesforce Lead'},salesforce_contact:{c:'crm',i:'👤',l:'SF Contact'},pipedrive_deal:{c:'crm',i:'💼',l:'Pipedrive Deal'},zoho_lead:{c:'crm',i:'Z',l:'Zoho Lead'},hubspot_deal:{c:'crm',i:'⚡',l:'HubSpot Deal'},
+    // Email Marketing
+    mailchimp_campaign:{c:'emailmktg',i:'🐵',l:'Mailchimp Campaign'},mailchimp_subscriber:{c:'emailmktg',i:'📧',l:'Mailchimp Sub'},sendgrid_send:{c:'emailmktg',i:'📨',l:'SendGrid Send'},convertkit_tag:{c:'emailmktg',i:'🏷',l:'ConvertKit Tag'},
+    // Analytics
+    ga_report:{c:'analytics',i:'📊',l:'GA Report'},mixpanel_event:{c:'analytics',i:'📈',l:'Mixpanel Event'},amplitude_export:{c:'analytics',i:'📉',l:'Amplitude Export'},metabase_query:{c:'analytics',i:'🔍',l:'Metabase Query'},
+    // IoT
+    mqtt_publish:{c:'iot',i:'📤',l:'MQTT Publish'},mqtt_subscribe:{c:'iot',i:'📥',l:'MQTT Subscribe'},device_webhook:{c:'iot',i:'🔌',l:'Device Webhook'},
+    // Maps
+    geocode:{c:'maps',i:'📍',l:'Geocode'},reverse_geocode:{c:'maps',i:'🗺',l:'Reverse Geocode'},directions:{c:'maps',i:'🧭',l:'Directions'},places_search:{c:'maps',i:'🔍',l:'Places Search'},
+    // Forms
+    typeform_webhook:{c:'forms',i:'📋',l:'Typeform Hook'},gform_webhook:{c:'forms',i:'📝',l:'Google Forms'},survey_analyze:{c:'forms',i:'📊',l:'Survey Analyze'},
+    // Support
+    zendesk_ticket:{c:'support',i:'🎫',l:'Zendesk Ticket'},zendesk_update:{c:'support',i:'✏',l:'Zendesk Update'},intercom_msg:{c:'support',i:'💬',l:'Intercom Message'},freshdesk_ticket:{c:'support',i:'🎫',l:'Freshdesk Ticket'},
+    // Events
+    kafka_produce:{c:'events',i:'📤',l:'Kafka Produce'},kafka_consume:{c:'events',i:'📥',l:'Kafka Consume'},rabbitmq_publish:{c:'events',i:'🐰',l:'RabbitMQ Publish'},websocket_connect:{c:'events',i:'🔌',l:'WebSocket'},redis_pub:{c:'events',i:'📡',l:'Redis Pub'},
+    // Search
+    elasticsearch_query:{c:'search',i:'🔍',l:'Elasticsearch'},algolia_index:{c:'search',i:'🔎',l:'Algolia Index'},meilisearch_add:{c:'search',i:'🔍',l:'Meilisearch Add'},
+    // LLMs
+    openai_chat:{c:'llm',i:'🤖',l:'OpenAI Chat'},claude_chat:{c:'llm',i:'🧠',l:'Claude Chat'},huggingface_infer:{c:'llm',i:'🤗',l:'HF Inference'},replicate_run:{c:'llm',i:'🔄',l:'Replicate Run'},pinecone_query:{c:'llm',i:'🌲',l:'Pinecone Query'},embeddings_gen:{c:'llm',i:'🧬',l:'Generate Embeddings'},rag_query:{c:'llm',i:'📚',l:'RAG Query'},
+    // Cloud
+    lambda_invoke:{c:'cloud',i:'λ',l:'AWS Lambda'},vercel_deploy:{c:'cloud',i:'▲',l:'Vercel Deploy'},docker_run:{c:'cloud',i:'🐳',l:'Docker Run'},k8s_scale:{c:'cloud',i:'☸',l:'K8s Scale'},cloudflare_purge:{c:'cloud',i:'🌩',l:'CF Purge Cache'}
   };
   var def=all[a]||{c:'action',i:'⬡',l:a};
   return {category:def.c,icon:def.i,label:def.l,color:edNodeTypes[def.c]?edNodeTypes[def.c].color:'#6b7280'};
@@ -585,7 +688,7 @@ function showView(v){
     if(el)el.classList.toggle('hidden',s!==v);
   });
   state=v;
-  if(v==='editor'){initEditor();if(wfId){document.getElementById('btn-run').style.display='';document.getElementById('btn-toggle-active').style.display=''}}
+  if(v==='editor'){initEditor();if(wfId){document.getElementById('btn-run').style.display='';document.getElementById('btn-toggle-active').style.display='';document.getElementById('btn-export').style.display=''}}
   if(v==='idle'){bridge('workflow.list');document.getElementById('btn-run').style.display='none';document.getElementById('btn-toggle-active').style.display='none'}
 }
 
@@ -604,36 +707,99 @@ function deployWorkflow(){
 }
 
 // Manual test execution
+function exportN8n(){
+  var nodes=[],conns={},prev='Schedule_Trigger';
+  // Trigger
+  nodes.push({id:'trigger',name:'Schedule Trigger',type:'n8n-nodes-base.scheduleTrigger',typeVersion:1,position:[0,300]});
+  // Steps from editor graph
+  editNodes.forEach(function(n,i){
+    var nid=n.id,name=n.label.replace(/\s+/g,'_').slice(0,40);
+    var types={gmail_search:{t:'n8n-nodes-base.gmail',v:2,p:{operation:'search',query:n.desc||''}},gmail_send:{t:'n8n-nodes-base.gmail',v:2,p:{operation:'send'}},sheets_append:{t:'n8n-nodes-base.googleSheets',v:4,p:{operation:'append'}},sheets_read:{t:'n8n-nodes-base.googleSheets',v:4,p:{operation:'read'}},slack_post:{t:'n8n-nodes-base.slack',v:3,p:{}},extract_data:{t:'n8n-nodes-base.set',v:3,p:{}},condition:{t:'n8n-nodes-base.if',v:2,p:{}},http_request:{t:'n8n-nodes-base.httpRequest',v:4,p:{method:'GET'}},wait:{t:'n8n-nodes-base.wait',v:1,p:{amount:1}},send_email:{t:'n8n-nodes-base.emailSend',v:2,p:{}},ai_summarize:{t:'n8n-nodes-base.openAi',v:2,p:{}},code_python:{t:'n8n-nodes-base.code',v:2,p:{language:'python'}}};
+    var def=types[n.type]||{t:'n8n-nodes-base.httpRequest',v:4,p:{notes:'Mirror: '+n.type}};
+    nodes.push({id:nid,name:name,type:def.t,typeVersion:def.v,position:[250+i*300,250+(i%3)*200],parameters:def.p});
+    conns[prev]={main:[[{node:name,type:'main',index:0}]]};
+    prev=name;
+  });
+  var json=JSON.stringify({name:document.getElementById('wf-name').value||'Workflow',nodes:nodes,connections:conns,active:false},null,2);
+  var blob=new Blob([json],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(document.getElementById('wf-name').value||'workflow').replace(/\s+/g,'_')+'_n8n.json';
+  a.click();
+  // Also send to backend for full export
+  bridge('workflow.export.n8n');
+  toast('Exported for n8n','success');
+}
+
 function executeWorkflow(){
   if(!wfId){toast('Deploy the workflow first, then run it','error');return}
-  // Set all nodes to waiting state
+  // Reset all states
   editNodes.forEach(function(n){nodeRunStates[n.id]='idle'})
   renderEditor();
-  // Execute step by step with animation
+  // Open execution panel
+  var rp=document.getElementById('run-panel');rp.classList.remove('closed');
+  var rh=rp.querySelector('.run-header');rh.textContent='▼ Running...';
+
   var nodes=editNodes.slice();
   var i=0;
+  var results=[];
+
   function runNext(){
     if(i>=nodes.length){
-      toast('Workflow complete','success');
-      // Refresh run history after execution
+      nodeRunStates[nodes[i-1]?.id]='idle';
+      renderEditor();
+      rh.textContent='▼ Run Complete ('+results.filter(function(r){return r.ok}).length+'/'+nodes.length+' ok)';
+      toast('Workflow complete: '+results.filter(function(r){return r.ok}).length+'/'+nodes.length+' steps passed','success');
       bridge('editor.runHistory');
+      renderExecResults(results);
       return;
     }
     var n=nodes[i];
     nodeRunStates[n.id]='running';renderEditor();
-    setTimeout(function(){
-      // Simulate execution result (backend would provide real output)
-      var ok=Math.random()>0.1;
-      nodeRunStates[n.id]=ok?'success':'failure';
+    rh.textContent='▼ Running step '+(i+1)+'/'+nodes.length+': '+n.label;
+
+    // Send step to backend for real execution
+    var params={nodeId:n.id,action:n.type,label:n.label,provider:n.provider||null};
+    if(n.desc)params.description=n.desc;
+    bridge('editor.executeNode',params);
+
+    // Set timeout for step completion (backend will call onNodeResult)
+    var started=Date.now();
+    var timeout=setTimeout(function(){
+      nodeRunStates[n.id]='failure';
       renderEditor();
-      if(!ok){toast('Step '+(i+1)+' failed: '+n.label,'error');return}
-      i++;setTimeout(runNext,400);
-    },600+i*100);
+      results.push({node:n.label,ok:false,error:'Timeout after 30s',duration:30000});
+      i++;runNext();
+    },30000);
+
+    // Listen for result (backend calls window.mirror.onNodeResult)
+    window._currentNodeId=n.id;
+    window._onNodeResult=function(success,output,error){
+      clearTimeout(timeout);
+      var dur=Date.now()-started;
+      nodeRunStates[n.id]=success?'success':'failure';
+      renderEditor();
+      results.push({node:n.label,ok:success,output:output||'',error:error||'',duration:dur});
+      if(!success)toast('Step '+(i+1)+' failed: '+n.label+' — '+error,'error');
+      renderExecResults(results);
+      i++;setTimeout(runNext,300);
+    };
   }
-  toast('Running workflow...','success');
-  // Also trigger real backend execution
-  bridge('workflow.runNow',{id:wfId});
+
+  toast('Executing '+nodes.length+' steps...','success');
   runNext();
+}
+
+function renderExecResults(results){
+  var b=document.getElementById('run-body');
+  var h='';
+  results.forEach(function(r){
+    var icon=r.ok?'✓':'✗';
+    var cls=r.ok?'ok':'fail';
+    h+='<div class="run-row"><div class="run-dot '+cls+'"></div><span class="run-time">'+icon+'</span><span class="run-name">'+r.node+'</span><span class="run-dur">'+(r.duration||0)+'ms</span></div>';
+    if(!r.ok&&r.error)h+='<div style="font-size:10px;color:var(--red);padding-left:20px;margin-bottom:4px">'+r.error+'</div>';
+    if(r.ok&&r.output)h+='<div style="font-size:10px;color:var(--t2);padding-left:20px;margin-bottom:4px;max-height:40px;overflow:hidden">'+r.output+'</div>';
+  });
+  b.innerHTML=h;
+}
 }
 
 // Toggle between scheduled (Active) and manual (Draft)
@@ -695,9 +861,10 @@ function renderSBWorkflows(){
 function openWF(id,name){
   document.getElementById('wf-name').value=name;
   wfId=id;
-  document.getElementById('btn-run').style.display='';
-  document.getElementById('btn-toggle-active').style.display='';
-  var w=deployedWorkflows.find(function(w){return w.id===id});
+    document.getElementById('btn-run').style.display='';
+    document.getElementById('btn-toggle-active').style.display='';
+    document.getElementById('btn-export').style.display='';
+    var w=deployedWorkflows.find(function(w){return w.id===id});
   if(w){
     var s=document.getElementById('wf-status');var b=document.getElementById('btn-toggle-active');
     if(w.enabled){s.textContent='Active';s.className='status active';b.textContent='Deactivate'}else{s.textContent='Draft';s.className='status draft';b.textContent='Activate'}
@@ -860,7 +1027,7 @@ function renderEditor(){
   // Nodes
   editNodes.forEach(function(n){
     var cat=n.category||'action';
-    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280',calendar:'#0ea5e9',database:'#14b8a6',finance:'#10b981',social:'#ec4899',cms:'#f97316',media:'#d946ef',devtools:'#71717a',storage:'#78716c',monitor:'#ef4444',rss:'#f97316',weather:'#0ea5e9'};
+    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280',calendar:'#0ea5e9',database:'#14b8a6',finance:'#10b981',social:'#ec4899',cms:'#f97316',media:'#d946ef',devtools:'#71717a',storage:'#78716c',monitor:'#ef4444',rss:'#f97316',weather:'#0ea5e9',crm:'#2563eb',emailmktg:'#f472b6',analytics:'#f97316',iot:'#84cc16',maps:'#06b6d4',forms:'#a78bfa',support:'#14b8a6',events:'#ec4899',search:'#8b5cf6',llm:'#a855f7',cloud:'#06b6d4'};
     var c=colors[cat]||'#6b7280';
     var sel=selNodeIds.has(n.id);
     // Truncate text to fit in 240px node
@@ -1155,6 +1322,11 @@ window.mirror={
   showIdleState:function(){showView('idle')},
   updateGoogleStatus:function(c){GoogleOAuthManager_connected=c},
   setWorkflowList:function(wfs){renderWFList(wfs)},
+  onNodeResult:function(nodeId,success,output,error){
+    if(window._onNodeResult&&window._currentNodeId===nodeId){
+      window._onNodeResult(success,output,error);
+    }
+  },
   showToast:function(msg){toast(msg,'success')},
   showExportSuccess:function(f){toast('✓ Exported '+f,'success')},
   setRunHistory:function(runs){
