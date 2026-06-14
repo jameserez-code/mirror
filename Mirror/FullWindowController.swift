@@ -439,6 +439,17 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             let target = targetWebView ?? webView!
             callJS(on: target, "window.mirror.updateGoogleStatus", args: [GoogleOAuthManager.isConnected()])
 
+        case "quicktest.run":
+            if let action = body["action"] as? String {
+                let targetWV = targetWebView ?? webView!
+                Task {
+                    let result = await quickTestAction(action: action)
+                    await MainActor.run {
+                        callJS(on: targetWV, "window.mirror.onQuickTestResult", args: [result.success, result.message])
+                    }
+                }
+            }
+
         case "clipboard.read":
             let targetField = body["targetField"] as? String ?? ""
             let targetWV = targetWebView ?? webView!
@@ -922,6 +933,73 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             return "Daily at \(hour.pad2):\(min.pad2)"
         }
         return cron
+    }
+
+    // MARK: - Quick Test Actions
+
+    private func quickTestAction(action: String) async -> (success: Bool, message: String) {
+        switch action {
+        case "send_email":
+            guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected. Go to Settings → Integrations.") }
+            let to = UserDefaults.standard.string(forKey: "test_email_to") ?? "test@example.com"
+            do {
+                try await GmailConnector().send(to: to, subject: "Mirror Test Email", body: "This is a test email from Mirror. If you received this, Gmail integration is working correctly. Sent at \(Date().formatted()).")
+                return (true, "Test email sent to \(to)")
+            } catch { return (false, error.localizedDescription) }
+
+        case "sheets_append":
+            guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected.") }
+            // Try to find or create test sheet
+            let sheetId = UserDefaults.standard.string(forKey: "test_sheet_id") ?? ""
+            if sheetId.isEmpty {
+                do {
+                    let id = try await SheetsConnector().createSheet(title: "Mirror Test Sheet")
+                    UserDefaults.standard.set(id, forKey: "test_sheet_id")
+                    try await SheetsConnector().appendRow(spreadsheetId: id, range: "Sheet1!A:C", values: ["Test", "Mirror", Date().formatted()])
+                    return (true, "Test sheet created + row appended. Sheet ID: \(id.prefix(10))...")
+                } catch { return (false, error.localizedDescription) }
+            } else {
+                do {
+                    try await SheetsConnector().appendRow(spreadsheetId: sheetId, range: "Sheet1!A:C", values: ["Test", "Mirror", Date().formatted()])
+                    return (true, "Test row appended to existing sheet")
+                } catch { return (false, error.localizedDescription) }
+            }
+
+        case "slack_post":
+            guard CredentialStore.shared.get(key: "slack_access_token") != nil else { return (false, "Slack not connected.") }
+            do {
+                try await SlackConnector().postMessage(channel: "#general", text: "🔔 Mirror test notification. Slack integration is working. (\(Date().formatted()))")
+                return (true, "Test message posted to #general")
+            } catch { return (false, error.localizedDescription) }
+
+        case "http_request":
+            guard let url = URL(string: "https://httpbin.org/get") else { return (false, "Invalid URL") }
+            do {
+                let (data, resp) = try await URLSession.shared.data(from: url)
+                let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                let body = String(data: data, encoding: .utf8)?.count ?? 0
+                return (true, "HTTP \(status) — \(body) bytes from httpbin.org")
+            } catch { return (false, error.localizedDescription) }
+
+        case "drive_upload":
+            guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected.") }
+            let testPath = "/tmp/mirror_quicktest.txt"
+            try? "Mirror test file — \(Date().formatted())".write(toFile: testPath, atomically: true, encoding: .utf8)
+            do {
+                let id = try await DriveConnector().uploadFile(filePath: testPath)
+                return (true, "Test file uploaded. Drive ID: \(id.prefix(10))...")
+            } catch { return (false, error.localizedDescription) }
+
+        case "gmail_search":
+            guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected.") }
+            do {
+                let msgs = try await GmailConnector().search(query: "in:inbox", maxResults: 3)
+                return (true, "Found \(msgs.count) recent emails in inbox")
+            } catch { return (false, error.localizedDescription) }
+
+        default:
+            return (false, "Unknown test action: \(action)")
+        }
     }
 
     // MARK: - Node Execution (live step-by-step)

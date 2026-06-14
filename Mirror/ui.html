@@ -324,6 +324,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
         <div id="node-palette"></div>
         <div class="sb-title" style="margin-top:16px">Deployed</div>
         <div id="sb-workflows"></div>
+        <div class="sb-title" style="margin-top:16px">Quick Actions</div>
+        <button class="tb-btn" style="width:calc(100% - 16px);margin:4px 8px;justify-content:center;background:var(--bg3)" onclick="quickTest('send_email')">✉ Send Test Email</button>
+        <button class="tb-btn" style="width:calc(100% - 16px);margin:4px 8px;justify-content:center;background:var(--bg3)" onclick="quickTest('sheets_append')">📊 Append Test Row</button>
+        <button class="tb-btn" style="width:calc(100% - 16px);margin:4px 8px;justify-content:center;background:var(--bg3)" onclick="quickTest('slack_post')"># Post Test Slack</button>
+        <button class="tb-btn" style="width:calc(100% - 16px);margin:4px 8px;justify-content:center;background:var(--bg3)" onclick="quickTest('http_request')">🌐 HTTP Test Request</button>
+        <button class="tb-btn" style="width:calc(100% - 16px);margin:4px 8px;justify-content:center;background:var(--bg3)" onclick="quickTest('drive_upload')">⬆ Upload Test File</button>
       </div>
       <div class="cv" id="editor-canvas">
         <svg class="cv-svg" id="editor-svg"></svg>
@@ -1425,6 +1431,15 @@ document.addEventListener('keydown',function(e){
   // Escape
   if(e.key==='Escape'){selNodeIds.clear();renderEditor();renderInspector(null);hideContext()}
 });
+
+function quickTest(action){
+  toast('Running '+action+'...','success');
+  bridge('quicktest.run',{action:action});
+}
+window.mirror.onQuickTestResult=function(success,msg){
+  if(success)toast('✓ '+msg,'success');
+  else toast('✗ '+msg,'error');
+};
 </script>
 </body>
 </html>
