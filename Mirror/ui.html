@@ -454,6 +454,9 @@ var edNodeTypes={
     {t:'scroll_page',l:'Scroll Page',i:'📜',d:'Scroll window'},
     {t:'take_screenshot',l:'Screenshot',i:'📸',d:'Capture screen'}
   ]},
+  sticky:{color:'#eab308',bg:'rgba(234,179,8,0.12)',items:[
+    {t:'sticky_note',l:'Sticky Note',i:'📝',d:'Add a note or comment to the workflow'}
+  ]},
   calendar:{color:'#0ea5e9',items:[
     {t:'gcal_create',l:'Calendar Create',i:'📅',d:'Create Google Calendar event',p:'google'},
     {t:'gcal_read',l:'Calendar Read',i:'📆',d:'Read calendar events',p:'google'},
@@ -605,7 +608,7 @@ var edNodeTypes={
   ]}
 };
 
-var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop',calendar:'Calendar',database:'Databases',finance:'Finance',social:'Social & Chat',cms:'CMS & E-Commerce',media:'Media & PDF',devtools:'Dev Tools',storage:'Cloud Storage',monitor:'Monitoring',rss:'RSS & Feeds',weather:'Weather',crm:'CRM',emailmktg:'Email Marketing',analytics:'Analytics',iot:'IoT & Devices',maps:'Maps & Geo',forms:'Forms & Surveys',support:'Customer Support',events:'Events & Streaming',search:'Search',llm:'LLMs & AI Models',cloud:'Cloud & Infra'};
+var catNames={trigger:'Triggers',gmail:'Gmail API',sheets:'Google Sheets',drive:'Google Drive',slack:'Slack',http:'HTTP & Webhooks',ai:'AI & ML',data:'Data Transforms',logic:'Logic & Control',action:'Actions',desktop:'Desktop',calendar:'Calendar',database:'Databases',finance:'Finance',social:'Social & Chat',cms:'CMS & E-Commerce',media:'Media & PDF',devtools:'Dev Tools',storage:'Cloud Storage',monitor:'Monitoring',rss:'RSS & Feeds',weather:'Weather',crm:'CRM',emailmktg:'Email Marketing',analytics:'Analytics',iot:'IoT & Devices',maps:'Maps & Geo',forms:'Forms & Surveys',support:'Customer Support',events:'Events & Streaming',search:'Search',llm:'LLMs & AI Models',cloud:'Cloud & Infra',sticky:'Notes'};
 
 // Centralized action → {category, icon, label} mapper
 function getNodeInfo(a){
@@ -623,6 +626,7 @@ function getNodeInfo(a){
     open_app:{c:'desktop',i:'📱',l:'Open App'},open_application:{c:'desktop',i:'📱',l:'Open App'},type_text:{c:'desktop',i:'⌨',l:'Type Text'},click_element:{c:'desktop',i:'🖱',l:'Click Element'},click_ui_element:{c:'desktop',i:'🖱',l:'Click UI'},click:{c:'desktop',i:'🖱',l:'Click'},press_shortcut:{c:'desktop',i:'⌘',l:'Press Shortcut'},paste_text:{c:'desktop',i:'📋',l:'Paste'},copy_to_clipboard:{c:'desktop',i:'📋',l:'Copy'},navigate_url:{c:'desktop',i:'🔗',l:'Navigate'},fill_form:{c:'desktop',i:'📝',l:'Fill Form'},scroll_page:{c:'desktop',i:'📜',l:'Scroll'},take_screenshot:{c:'desktop',i:'📸',l:'Screenshot'},
     upload_file:{c:'drive',i:'⬆',l:'Upload File'},file_read:{c:'drive',i:'📄',l:'Read File'},file_write:{c:'drive',i:'💾',l:'Write File'},download_attachment:{c:'drive',i:'⬇',l:'Download'},
      open_url:{c:'desktop',i:'🔗',l:'Open URL'},summarize:{c:'ai',i:'📝',l:'Summarize'},classify:{c:'ai',i:'🏷',l:'Classify'},filter:{c:'data',i:'🔍',l:'Filter'},transform:{c:'data',i:'⚡',l:'Transform'},branch:{c:'logic',i:'⑂',l:'Branch'},
+    sticky_note:{c:'sticky',i:'📝',l:'Sticky Note'},
     // Calendar
     gcal_create:{c:'calendar',i:'📅',l:'Calendar Create'},gcal_read:{c:'calendar',i:'📆',l:'Calendar Read'},gcal_update:{c:'calendar',i:'✏',l:'Calendar Update'},gcal_delete:{c:'calendar',i:'🗑',l:'Calendar Delete'},
     // Database
@@ -1008,7 +1012,7 @@ function renderEditor(){
 
   // Clip paths for each node
   editNodes.forEach(function(n){
-    html+='<clipPath id="clip-'+n.id+'"><rect x="-10" y="-5" width="260" height="100" rx="8"/></clipPath>';
+    html+='<clipPath id="clip-'+n.id+'"><rect x="-5" y="-2" width="254" height="96" rx="10"/></clipPath>';
   });
   html+='</defs>';
 
@@ -1032,38 +1036,72 @@ function renderEditor(){
     if(fn)html+='<line x1="'+(fn.x+240)+'" y1="'+(fn.y+45)+'" x2="'+connecting.ex+'" y2="'+connecting.ey+'" stroke="#6366f1" stroke-width="2" stroke-dasharray="6,3"/>';
   }
 
-  // Nodes
+  // Nodes — n8n style
   editNodes.forEach(function(n){
     var cat=n.category||'action';
-    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280',calendar:'#0ea5e9',database:'#14b8a6',finance:'#10b981',social:'#ec4899',cms:'#f97316',media:'#d946ef',devtools:'#71717a',storage:'#78716c',monitor:'#ef4444',rss:'#f97316',weather:'#0ea5e9',crm:'#2563eb',emailmktg:'#f472b6',analytics:'#f97316',iot:'#84cc16',maps:'#06b6d4',forms:'#a78bfa',support:'#14b8a6',events:'#ec4899',search:'#8b5cf6',llm:'#a855f7',cloud:'#06b6d4'};
+    var colors={trigger:'#eab308',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#8b5cf6',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280',calendar:'#0ea5e9',database:'#14b8a6',finance:'#10b981',social:'#ec4899',cms:'#f97316',media:'#d946ef',devtools:'#71717a',storage:'#78716c',monitor:'#ef4444',rss:'#f97316',weather:'#0ea5e9',crm:'#2563eb',emailmktg:'#f472b6',analytics:'#f97316',iot:'#84cc16',maps:'#06b6d4',forms:'#a78bfa',support:'#14b8a6',events:'#ec4899',search:'#8b5cf6',llm:'#a855f7',cloud:'#06b6d4',sticky:'#eab308'};
     var c=colors[cat]||'#6b7280';
     var sel=selNodeIds.has(n.id);
-    // Truncate text to fit in 240px node
-    var lbl=(n.label||'Node')+'';
-    if(lbl.length>20)lbl=lbl.slice(0,18)+'...';
-    var icon=(n.icon||'⬡')+' ';
-    var fullLabel=icon+lbl;
-    var desc=(n.desc||n.description||'')+'';
-    if(desc.length>40)desc=desc.slice(0,38)+'...';
-    if(!desc)desc='Step';
-    var conf=n.confidence||0.5;
-    var confPct=(conf*100|0)+'%';
-    html+='<g transform="translate('+n.x+','+n.y+')" class="cv-node '+cat+(sel?' selected':'')+'" clip-path="url(#clip-'+n.id+')" onmousedown="nodeMouseDown(event,\''+n.id+'\')" onclick="selectNode(event,\''+n.id+'\')" oncontextmenu="nodeCtx(event,\''+n.id+'\')">';
-    // Body
-    html+='<rect x="0" y="0" width="240" height="90" rx="8"/>';
+    var rs=nodeRunStates[n.id]||'idle';
+    var isSticky=cat==='sticky'||n.type==='sticky_note';
+    var lbl=(n.label||'Node')+'';if(lbl.length>20)lbl=lbl.slice(0,18)+'...';
+    var icon=(n.icon||'⬡');
+    var desc=(n.desc||n.description||'')+'';if(desc.length>42)desc=desc.slice(0,40)+'...';if(!desc)desc='';
+    var conf=n.confidence||0.5;var confPct=Math.round(conf*100)+'%';
+
+    // Provider badge
+    var provBadge='';
+    if(n.provider&&n.provider!=='system'){
+      var pc=n.provider==='gmail'?'#3b82f6':n.provider==='sheets'?'#22c55e':n.provider==='slack'?'#4A154B':n.provider==='drive'?'#06b6d4':'#6b7280';
+      provBadge='<rect x="'+(228-n.provider.length*7)+'" y="3" width="'+(n.provider.length*7+12)+'" height="13" rx="4" fill="'+pc+'" opacity="0.15"/><text x="234" y="13" font-size="8" fill="'+pc+'" text-anchor="end" font-weight="600">'+n.provider+'</text>';
+    }
+
+    // Run state indicator dot
+    var runDot='';
+    if(rs==='running')runDot='<circle cx="228" cy="78" r="5" fill="#3b82f6" opacity="0.9"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.2s" repeatCount="indefinite"/></circle>';
+    else if(rs==='success')runDot='<circle cx="228" cy="78" r="4" fill="#22c55e"/>';
+    else if(rs==='failure')runDot='<circle cx="228" cy="78" r="4" fill="#ef4444"/>';
+
+    var execAnim='';
+    if(rs==='running')execAnim=' filter:none';
+    else if(rs==='success')execAnim='';
+    else if(rs==='failure')execAnim='';
+    var borderC=rs==='success'?'#22c55e':rs==='failure'?'#ef4444':rs==='running'?'#6366f1':sel?c:'rgba(255,255,255,0.08)';
+
+    html+='<g transform="translate('+n.x+','+n.y+')" onmousedown="nodeMouseDown(event,\''+n.id+'\')" onclick="selectNode(event,\''+n.id+'\')" oncontextmenu="nodeCtx(event,\''+n.id+'\')" style="'+execAnim+'">';
+
+    // Shadow rect
+    html+='<rect x="1" y="2" width="240" height="90" rx="10" fill="#000" opacity="0.15"/>';
+    // Body rect
+    html+='<rect x="0" y="0" width="240" height="90" rx="10" fill="'+(isSticky?'#2a2618':'#1C1C22')+'" stroke="'+borderC+'" stroke-width="'+(sel||rs!=='idle'?'1.5':'1')+'"/>';
+    // Left stripe
+    html+='<rect x="0" y="10" width="4" height="70" rx="2" fill="'+c+'"/>';
+
     // Header
-    html+='<path d="M0,8 Q0,0 8,0 L232,0 Q240,0 240,8 L240,32 L0,32 Z" class="cv-node-header"/>';
-    html+='<text x="12" y="13" font-size="11" fill="'+c+'" font-weight="600">'+fullLabel+'</text>';
-    // Badge
-    if(n.category==='desktop')html+='<text x="230" y="13" font-size="9" fill="#6b7280" text-anchor="end">💻</text>';
-    else html+='<text x="230" y="13" font-size="9" fill="#4ade80" text-anchor="end">☁</text>';
-    // Description text
-    html+='<text x="12" y="52" font-size="11" fill="#94a3b8">'+desc+'</text>';
-    // Confidence
-    html+='<text x="12" y="78" font-size="10" fill="'+(conf>0.7?'#22c55e':conf>0.5?'#eab308':'#ef4444')+'">'+confPct+'</text>';
-    // Handles
-    html+='<circle cx="0" cy="40" r="6" class="cv-handle" onmousedown="startConnect(event,\''+n.id+'\')"/>';
-    html+='<circle cx="240" cy="40" r="6" class="cv-handle" onmousedown="startConnect(event,\''+n.id+'\')"/>';
+    html+='<rect x="0" y="0" width="240" height="36" rx="10" fill="rgba(255,255,255,0.02)"/>';
+    html+='<rect x="0" y="26" width="240" height="10" fill="rgba(255,255,255,0.02)"/>';
+    html+='<text x="16" y="15" font-size="10" fill="'+c+'" font-weight="700">'+icon+'</text>';
+    html+='<text x="32" y="15" font-size="12" fill="#f1f5f9" font-weight="600">'+lbl+'</text>';
+    html+=provBadge;
+
+    // Separator line
+    html+='<line x1="16" y1="38" x2="224" y2="38" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>';
+
+    // Description (only if present)
+    if(desc)html+='<text x="16" y="55" font-size="11" fill="#87879B">'+desc+'</text>';
+
+    // Footer
+    html+='<text x="16" y="80" font-size="9" fill="'+(conf>0.7?'#4ADE80':conf>0.5?'#eab308':'#ef4444')+'" font-weight="600">'+confPct+'</text>';
+    html+=runDot;
+    if(!runDot){
+      if(n.category==='desktop')html+='<text x="228" y="80" font-size="8" fill="#6b7280" text-anchor="end">Local</text>';
+      else html+='<text x="228" y="80" font-size="8" fill="#4ade80" text-anchor="end">Cloud</text>';
+    }
+
+    // Handles (small dots)
+    html+='<circle cx="0" cy="45" r="4" fill="'+c+'" stroke="#1C1C22" stroke-width="1.5" onmousedown="startConnect(event,\''+n.id+'\')" style="cursor:crosshair;opacity:'+(sel?'1':'0')+';transition:opacity .15s"/>';
+    html+='<circle cx="240" cy="45" r="4" fill="'+c+'" stroke="#1C1C22" stroke-width="1.5" onmousedown="startConnect(event,\''+n.id+'\')" style="cursor:crosshair;opacity:'+(sel?'1':'0')+';transition:opacity .15s"/>';
+
     html+='</g>';
   });
 
