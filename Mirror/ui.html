@@ -1440,6 +1440,12 @@ window.mirror.onQuickTestResult=function(success,msg){
   if(success)toast('✓ '+msg,'success');
   else toast('✗ '+msg,'error');
 };
+window.mirror.onSaved=function(ok){toast(ok?'Saved':'Save failed',ok?'success':'error')};
+window.mirror.onDeployed=function(ok,name){document.getElementById('wf-status').textContent=ok?'Active':'Draft';document.getElementById('wf-status').className=ok?'status active':'status draft';toast(ok?'Deployed: '+name:'Deploy failed','success');bridge('workflow.list')};
+window.mirror.setWorkflowHealth=function(h){if(h){document.getElementById('run-panel').querySelector('.run-header').textContent='▼ '+h.statusText+' · '+Math.round(h.successRate*100)+'%'}};
+
+// Reverse bridge for menu bar commands
+window.mirrorBridge={receiveMessage:function(msg){if(msg&&msg.type==='menuBarStartRecording'){showView('idle');setTimeout(startRecording,100)}}};
 </script>
 </body>
 </html>

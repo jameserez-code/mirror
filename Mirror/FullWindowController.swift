@@ -298,7 +298,16 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             sendWorkflowList()
 
         case "editor.ready":
+            sendWorkflowList()
             sendRunHistory(to: targetWebView ?? webView!)
+
+        case "editor.runHistory":
+            sendRunHistory(to: targetWebView ?? webView!)
+
+        case "editor.workflowDetail":
+            if let wfId = body["workflowId"] as? String {
+                sendWorkflowDetail(workflowId: wfId, to: targetWebView ?? webView!)
+            }
 
         case "editor.executeNode":
             let nodeId = body["nodeId"] as? String ?? ""
@@ -314,11 +323,6 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
                         callJS(on: targetWV, "window.mirror.onNodeResult", args: [nodeId, false, "", result.error ?? "Unknown error"])
                     }
                 }
-            }
-
-        case "editor.workflowDetail":
-            if let wfId = body["workflowId"] as? String {
-                sendWorkflowDetail(workflowId: wfId, to: targetWebView ?? webView!)
             }
 
         case "editor.workflowHealth":
@@ -438,6 +442,15 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         case "integrations.status":
             let target = targetWebView ?? webView!
             callJS(on: target, "window.mirror.updateGoogleStatus", args: [GoogleOAuthManager.isConnected()])
+
+        case "integrations.testGoogle":
+            let testWV = targetWebView ?? webView!
+            Task {
+                let results = await testGoogleIntegration()
+                await MainActor.run {
+                    callJS(on: testWV, "window.mirror.showGoogleTestResults", args: [results])
+                }
+            }
 
         case "quicktest.run":
             if let action = body["action"] as? String {
@@ -917,6 +930,21 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     }
 
     // MARK: - Cron Helper
+
+    private func testGoogleIntegration() async -> [String: Any] {
+        var gmailOK=false,gmailError="",sheetsOK=false,sheetsError="",driveOK=false,driveError=""
+        do { _=try await GmailConnector().search(query:"in:inbox",maxResults:1);gmailOK=true } catch { gmailError=error.localizedDescription }
+        do {
+            guard let url=URL(string:"https://sheets.googleapis.com/v4/spreadsheets?pageSize=1") else { throw NSError() }
+            let token=try await GoogleOAuthManager().getValidAccessToken()
+            var req=URLRequest(url:url);req.setValue("Bearer \(token)",forHTTPHeaderField:"Authorization")
+            let(_,resp)=try await URLSession.shared.data(for:req)
+            sheetsOK=(resp as? HTTPURLResponse)?.statusCode==200
+            if !sheetsOK { sheetsError="HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)" }
+        } catch { sheetsError=error.localizedDescription }
+        do { _=try await DriveConnector().searchFiles(query:"trashed=false",maxResults:1);driveOK=true } catch { driveError=error.localizedDescription }
+        return["gmail":gmailOK,"gmailError":gmailError,"sheets":sheetsOK,"sheetsError":sheetsError,"drive":driveOK,"driveError":driveError,"allPassed":gmailOK&&sheetsOK&&driveOK]
+    }
 
     private func cronToEnglish(_ cron: String) -> String {
         let parts = cron.split(separator: " ")
