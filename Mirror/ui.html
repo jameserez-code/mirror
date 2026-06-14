@@ -349,6 +349,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;backg
 <div class="toast" id="toast"></div>
 
 <script>
+try {
 // ═══════════ STATE ═══════════
 var state='idle',currentWorkflow=null,wfId='';
 var editNodes=[],editEdges=[],selNodeIds=new Set(),clipboard=[],undoStack=[],undoIdx=-1;
@@ -907,6 +908,7 @@ function initEditor(){
   });
   pal.innerHTML=h;
   renderEditor();
+  bridge('editor.ready');
 }
 
 function toggleCat(el,cat){
@@ -965,8 +967,8 @@ window.addEventListener('mousemove',function(e){
     editNodes.find(function(n){return n.id===dragNode}).x=snap(nx);
     editNodes.find(function(n){return n.id===dragNode}).y=snap(ny);
     // Move all selected nodes together
-    if(selNodeIdss.has(dragNode)&&selNodeIdss.size>1){
-      editNodes.forEach(function(n){if(selNodeIdss.has(n.id)&&n.id!==dragNode){n.x+=dx;n.y+=dy}});
+    if(selNodeIds.has(dragNode)&&selNodeIds.size>1){
+      editNodes.forEach(function(n){if(selNodeIds.has(n.id)&&n.id!==dragNode){n.x+=dx;n.y+=dy}});
     }
     pushUndoDelayed();
     renderEditor();
@@ -1443,6 +1445,11 @@ window.mirror.onQuickTestResult=function(success,msg){
 window.mirror.onSaved=function(ok){toast(ok?'Saved':'Save failed',ok?'success':'error')};
 window.mirror.onDeployed=function(ok,name){document.getElementById('wf-status').textContent=ok?'Active':'Draft';document.getElementById('wf-status').className=ok?'status active':'status draft';toast(ok?'Deployed: '+name:'Deploy failed','success');bridge('workflow.list')};
 window.mirror.setWorkflowHealth=function(h){if(h){document.getElementById('run-panel').querySelector('.run-header').textContent='▼ '+h.statusText+' · '+Math.round(h.successRate*100)+'%'}};
+window.mirror.loadSettings=function(s){}; // handeled by settings window
+window.mirror.updatePermissions=function(s){}; // handled by settings window
+window.mirror.setActivityList=function(e){}; // handled by settings window
+window.mirror.showKeyTestResult=function(s){}; // handled by settings window
+window.mirror.showGoogleTestResults=function(r){}; // handled by settings window
 
 // Reverse bridge for menu bar commands
 window.mirrorBridge={receiveMessage:function(msg){if(msg&&msg.type==='menuBarStartRecording'){showView('idle');setTimeout(startRecording,100)}}};
