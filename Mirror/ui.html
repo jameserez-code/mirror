@@ -192,18 +192,66 @@ var nodeRunStates={},GoogleConnected=false;
 var NODE_W=130,NODE_H=110,CANVAS_W=3000,CANVAS_H=3000;
 
 var edNodeTypes={
-  trigger:{c:'#34d399',items:[{t:'schedule_trigger',l:'Schedule',i:'⏰',d:'Runs on a cron schedule'},{t:'manual_trigger',l:'Manual',i:'👆',d:'Trigger manually'},{t:'webhook_trigger',l:'Webhook',i:'🪝',d:'HTTP endpoint'}]},
-  gmail:{c:'#3b82f6',items:[{t:'gmail_search',l:'Gmail Search',i:'G',d:'Search Gmail inbox'},{t:'gmail_send',l:'Gmail Send',i:'✉',d:'Send email via Gmail'}]},
-  sheets:{c:'#22c55e',items:[{t:'sheets_read',l:'Sheets Read',i:'S',d:'Read spreadsheet'},{t:'sheets_append',l:'Sheets Append',i:'📊',d:'Append row'}]},
-  slack:{c:'#4A154B',items:[{t:'slack_post',l:'Slack Post',i:'#',d:'Post to Slack'}]},
-  http:{c:'#a78bfa',items:[{t:'http_request',l:'HTTP Request',i:'🌐',d:'Make API call'},{t:'webhook_trigger',l:'Webhook',i:'📡',d:'Receive webhook'}]},
-  ai:{c:'#a855f7',items:[{t:'ai_summarize',l:'AI Summarize',i:'📝',d:'Summarize text'},{t:'ai_classify',l:'AI Classify',i:'🏷',d:'Categorize content'},{t:'ai_extract',l:'AI Extract',i:'🔮',d:'Extract structured data'}]},
-  data:{c:'#6366f1',items:[{t:'extract_fields',l:'Extract Fields',i:'✂',d:'Extract data'},{t:'filter',l:'Filter',i:'🔍',d:'Filter by condition'},{t:'parse_json',l:'Parse JSON',i:'{}',d:'Parse JSON string'}]},
-  logic:{c:'#f59e0b',items:[{t:'condition',l:'If Condition',i:'?',d:'Branch on expression'},{t:'wait',l:'Wait',i:'⏱',d:'Pause for duration'},{t:'loop',l:'For Each',i:'🔁',d:'Iterate over items'}]},
-  action:{c:'#22c55e',items:[{t:'send_email',l:'Send Email',i:'✉',d:'Send email'},{t:'notify_user',l:'Notify',i:'🔔',d:'Send notification'},{t:'run_script',l:'Run Script',i:'⚙',d:'Execute command'}]},
-  desktop:{c:'#6b7280',items:[{t:'open_app',l:'Open App',i:'📱',d:'Launch app'},{t:'type_text',l:'Type Text',i:'⌨',d:'Simulate typing'},{t:'click_element',l:'Click',i:'🖱',d:'Click at coordinates'}]}
+  trigger:{c:'#34d399',items:[
+    {t:'schedule_trigger',l:'Schedule',i:'⏰',d:'Run on a cron schedule'},{t:'manual_trigger',l:'Manual',i:'👆',d:'Trigger manually'},{t:'webhook_trigger',l:'Webhook',i:'🪝',d:'HTTP endpoint trigger'},{t:'file_watcher',l:'File Watcher',i:'📁',d:'Trigger on file changes'},{t:'email_received',l:'Email Received',i:'📧',d:'Trigger on new email'}
+  ]},
+  gmail:{c:'#3b82f6',items:[
+    {t:'gmail_search',l:'Gmail Search',i:'G',d:'Search Gmail inbox'},{t:'gmail_send',l:'Gmail Send',i:'✉',d:'Send email'},{t:'gmail_fetch',l:'Gmail Fetch',i:'M',d:'Fetch specific email'},{t:'gmail_draft',l:'Gmail Draft',i:'📝',d:'Create email draft'},{t:'gmail_label',l:'Gmail Label',i:'🏷',d:'Apply label to email'}
+  ]},
+  sheets:{c:'#22c55e',items:[
+    {t:'sheets_read',l:'Sheets Read',i:'S',d:'Read spreadsheet'},{t:'sheets_append',l:'Sheets Append',i:'📊',d:'Append row'},{t:'sheets_create',l:'Sheets Create',i:'📋',d:'Create spreadsheet'},{t:'sheets_update',l:'Sheets Update',i:'✏',d:'Update cells'},{t:'sheets_format',l:'Sheets Format',i:'🎨',d:'Format range'}
+  ]},
+  drive:{c:'#06b6d4',items:[
+    {t:'drive_search',l:'Drive Search',i:'D',d:'Search Drive files'},{t:'drive_upload',l:'Drive Upload',i:'⬆',d:'Upload file'},{t:'drive_download',l:'Drive Download',i:'⬇',d:'Download file'},{t:'drive_share',l:'Drive Share',i:'🔗',d:'Share file'}
+  ]},
+  slack:{c:'#4A154B',items:[
+    {t:'slack_post',l:'Slack Post',i:'#',d:'Post to channel'},{t:'slack_upload',l:'Slack Upload',i:'📎',d:'Upload file'},{t:'slack_fetch',l:'Slack Fetch',i:'📥',d:'Fetch messages'},{t:'slack_reply',l:'Slack Reply',i:'💬',d:'Reply in thread'}
+  ]},
+  http:{c:'#a78bfa',items:[
+    {t:'http_request',l:'HTTP Request',i:'🌐',d:'Make API call'},{t:'http_poll',l:'HTTP Poll',i:'🔄',d:'Poll endpoint'},{t:'webhook_trigger',l:'Webhook',i:'📡',d:'Receive webhook'}
+  ]},
+  ai:{c:'#a855f7',items:[
+    {t:'ai_summarize',l:'AI Summarize',i:'📝',d:'Summarize text'},{t:'ai_classify',l:'AI Classify',i:'🏷',d:'Categorize'},{t:'ai_extract',l:'AI Extract',i:'🔮',d:'Extract data'},{t:'ai_translate',l:'AI Translate',i:'🌍',d:'Translate text'},{t:'ai_sentiment',l:'AI Sentiment',i:'💭',d:'Analyze sentiment'}
+  ]},
+  data:{c:'#6366f1',items:[
+    {t:'extract_fields',l:'Extract Fields',i:'✂',d:'Extract data'},{t:'filter',l:'Filter',i:'🔍',d:'Filter by condition'},{t:'parse_json',l:'Parse JSON',i:'{}',d:'Parse JSON'},{t:'parse_csv',l:'Parse CSV',i:'📊',d:'Parse CSV'},{t:'merge_data',l:'Merge',i:'⨁',d:'Combine sources'},{t:'sort_data',l:'Sort',i:'⇅',d:'Sort by field'},{t:'deduplicate',l:'Deduplicate',i:'⊟',d:'Remove dupes'},{t:'aggregate',l:'Aggregate',i:'Σ',d:'Group and aggregate'}
+  ]},
+  logic:{c:'#f59e0b',items:[
+    {t:'condition',l:'If Condition',i:'?',d:'Branch expression'},{t:'switch',l:'Switch',i:'⑂',d:'Multi-branch'},{t:'loop',l:'For Each',i:'🔁',d:'Iterate items'},{t:'wait',l:'Wait',i:'⏱',d:'Pause duration'},{t:'random',l:'Random',i:'🎲',d:'Random value'},{t:'approval',l:'Approval',i:'✓',d:'Human approval'}
+  ]},
+  action:{c:'#22c55e',items:[
+    {t:'send_email',l:'Send Email',i:'✉',d:'Send email'},{t:'notify_user',l:'Notify',i:'🔔',d:'Notification'},{t:'run_script',l:'Run Script',i:'⚙',d:'Shell command'},{t:'screenshot',l:'Screenshot',i:'📸',d:'Capture screen'},{t:'create_file',l:'Create File',i:'📄',d:'Write file'},{t:'delete_file',l:'Delete File',i:'🗑',d:'Remove file'}
+  ]},
+  desktop:{c:'#6b7280',items:[
+    {t:'open_app',l:'Open App',i:'📱',d:'Launch app'},{t:'type_text',l:'Type Text',i:'⌨',d:'Type keys'},{t:'click_element',l:'Click',i:'🖱',d:'Click coords'},{t:'press_shortcut',l:'Shortcut',i:'⌘',d:'Key combo'},{t:'paste_text',l:'Paste',i:'📋',d:'Paste clipboard'},{t:'navigate_url',l:'Navigate',i:'🔗',d:'Open URL'},{t:'fill_form',l:'Fill Form',i:'📝',d:'Fill fields'}
+  ]},
+  database:{c:'#14b8a6',items:[
+    {t:'pg_query',l:'PostgreSQL',i:'🐘',d:'SQL query'},{t:'mysql_query',l:'MySQL',i:'🐬',d:'SQL query'},{t:'mongo_find',l:'MongoDB',i:'🍃',d:'Find docs'},{t:'airtable_read',l:'Airtable',i:'📋',d:'Read records'},{t:'notion_query',l:'Notion',i:'N',d:'Query DB'}
+  ]},
+  calendar:{c:'#0ea5e9',items:[
+    {t:'gcal_create',l:'Calendar Create',i:'📅',d:'Create event'},{t:'gcal_read',l:'Calendar Read',i:'📆',d:'Read events'},{t:'gcal_update',l:'Calendar Update',i:'✏',d:'Update event'},{t:'gcal_delete',l:'Calendar Delete',i:'🗑',d:'Delete event'}
+  ]},
+  social:{c:'#ec4899',items:[
+    {t:'twitter_post',l:'Tweet',i:'🐦',d:'Post to X'},{t:'linkedin_post',l:'LinkedIn',i:'💼',d:'Post'},{t:'discord_msg',l:'Discord',i:'💬',d:'Send msg'},{t:'telegram_msg',l:'Telegram',i:'✈',d:'Send msg'},{t:'whatsapp_msg',l:'WhatsApp',i:'💭',d:'Send msg'}
+  ]},
+  media:{c:'#d946ef',items:[
+    {t:'pdf_generate',l:'PDF Generate',i:'📄',d:'Create PDF'},{t:'pdf_extract',l:'PDF Extract',i:'🔍',d:'Extract text'},{t:'image_resize',l:'Resize Image',i:'🖼',d:'Resize/compress'},{t:'image_ocr',l:'OCR Image',i:'👁',d:'Extract text'}
+  ]},
+  finance:{c:'#10b981',items:[
+    {t:'stripe_invoice',l:'Stripe Invoice',i:'💳',d:'Create invoice'},{t:'exchange_rate',l:'Exchange Rate',i:'💱',d:'Currency rate'},{t:'crypto_price',l:'Crypto Price',i:'₿',d:'Fetch price'}
+  ]},
+  devtools:{c:'#71717a',items:[
+    {t:'code_python',l:'Run Python',i:'🐍',d:'Python script'},{t:'code_js',l:'Run JS',i:'JS',d:'JavaScript'},{t:'code_bash',l:'Run Bash',i:'>$',d:'Shell command'},{t:'github_issue',l:'GitHub Issue',i:'🐙',d:'Create issue'},{t:'jira_ticket',l:'Jira Ticket',i:'🎫',d:'Create ticket'}
+  ]},
+  storage:{c:'#78716c',items:[
+    {t:'s3_upload',l:'S3 Upload',i:'🪣',d:'Upload to S3'},{t:'s3_download',l:'S3 Download',i:'⬇',d:'Download from S3'},{t:'dropbox_upload',l:'Dropbox',i:'📦',d:'Upload file'},{t:'ftp_upload',l:'FTP Upload',i:'📤',d:'FTP transfer'}
+  ]},
+  monitor:{c:'#ef4444',items:[
+    {t:'uptime_check',l:'Uptime',i:'✅',d:'Check URL'},{t:'error_alert',l:'Alert',i:'🚨',d:'Send alert'},{t:'metric_push',l:'Push Metric',i:'📈',d:'Push metric'}
+  ]},
+  custom:{c:'#ec4899',items:[{t:'custom_node',l:'Custom Node',i:'✦',d:'Create custom node'},{t:'sticky_note',l:'Sticky Note',i:'📝',d:'Add note'}]}
 };
-var catColors={trigger:'#34d399',gmail:'#3b82f6',sheets:'#22c55e',slack:'#4A154B',http:'#a78bfa',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280'};
+var catColors={trigger:'#34d399',gmail:'#3b82f6',sheets:'#22c55e',drive:'#06b6d4',slack:'#4A154B',http:'#a78bfa',ai:'#a855f7',data:'#6366f1',logic:'#f59e0b',action:'#22c55e',desktop:'#6b7280',database:'#14b8a6',calendar:'#0ea5e9',social:'#ec4899',media:'#d946ef',finance:'#10b981',devtools:'#71717a',storage:'#78716c',monitor:'#ef4444',custom:'#ec4899'};
 
 // ═══════ BRIDGE ═══════
 function bridge(t,p){var m={type:t};if(p)for(var k in p)m[k]=p[k];if(window.webkit?.messageHandlers?.mirrorBridge)window.webkit.messageHandlers.mirrorBridge.postMessage(m);else console.log('Bridge:',t,p)}
@@ -281,8 +329,10 @@ function initEditor(){
   var pal=document.getElementById('node-palette'),h='';
   Object.keys(edNodeTypes).forEach(function(cat){var c=edNodeTypes[cat];h+='<div class="sb-cat-header" onclick="toggleCat(this,\''+cat+'\')">▼ '+cat.replace(/([A-Z])/g,' $1').replace(/^./,function(s){return s.toUpperCase()})+'</div>';
     c.items.forEach(function(n){h+='<div class="sb-node" data-cat="'+cat+'" draggable="true" ondragstart="dragPalette(event,\''+n.t+'\',\''+n.l+'\',\''+n.i+'\',\''+cat+'\')"><div class="sb-node-icon" style="background:'+c.c+'20;color:'+c.c+'">'+n.i+'</div><div class="sb-node-text"><div class="sb-node-name">'+n.l+'</div><div class="sb-node-desc">'+n.d+'</div></div></div>'})});
-  pal.innerHTML=h;renderAll();bridge('editor.ready');
+  pal.innerHTML=h+'<div style="padding:8px 12px;margin-top:4px"><button class="btn btn-secondary" style="width:100%;justify-content:center" onclick="addCustomNode()">✦ Create Custom Node</button></div>';renderAll();bridge('editor.ready');
 }
+
+function addCustomNode(){var pt={x:(cv.getBoundingClientRect().width/2-panOff.x)/scale,y:(cv.getBoundingClientRect().height/2-panOff.y)/scale};var id=addNode({type:'custom_node',label:'Custom Node',icon:'✦',category:'custom',color:'#ec4899'},pt.x,pt.y);selectNode(id)}
 
 function toggleCat(el,cat){var items=document.querySelectorAll('.sb-node[data-cat="'+cat+'"]');var c=items.length>0&&items[0].style.display==='none';items.forEach(function(i){i.style.display=c?'flex':'none'});el.textContent=(c?'▼':'▶')+' '+el.textContent.slice(2)}
 function filterNodes(q){document.querySelectorAll('.sb-node').forEach(function(i){i.style.display=!q||i.textContent.toLowerCase().includes(q.toLowerCase())?'flex':'none'})}
@@ -429,10 +479,27 @@ function renderProps(id){
   var n=editNodes.find(function(x){return x.id===id});if(!n)return;
   var panel=document.getElementById('props-panel');panel.classList.remove('closed');
   var b=document.getElementById('props-body');
-  b.innerHTML='<div class="p-row"><label>Name</label><input id="prop-name" value="'+n.label+'"></div><div class="p-row"><label>Subtitle</label><input id="prop-subtitle" value="'+(n.subtitle||'')+'"></div><div class="p-row"><label>Type</label><select id="prop-type">'+
-    Object.keys(edNodeTypes).map(function(c){return edNodeTypes[c].items.map(function(x){return'<option value="'+x.t+'"'+(n.type===x.t?' selected':'')+'>'+x.l+'</option>'}).join('')}).join('')+'</select></div><div class="p-row"><label>Category</label><input value="'+n.category+'" disabled style="opacity:.6"></div><div class="p-row"><label>Confidence</label><input type="range" min="0" max="100" value="'+(n.confidence*100|0)+'" oninput="updateNodeAttr(\''+id+'\',\'confidence\',this.value/100)"><span style="font-size:10px;color:var(--t3)">'+(n.confidence*100|0)+'%</span></div>'+
+  var catOpts=Object.keys(edNodeTypes).map(function(c){return'<option value="'+c+'"'+(n.category===c?' selected':'')+'>'+c.replace(/([A-Z])/g,' $1').replace(/^./,function(s){return s.toUpperCase()})+'</option>'}).join('');
+  var isCustom=n.category==='custom'||n.type==='custom_node';
+  b.innerHTML='<div class="p-row"><label>Name</label><input id="prop-name" value="'+n.label+'"></div>'+
+    (!isCustom?('<div class="p-row"><label>Action Type</label><select id="prop-type">'+Object.keys(edNodeTypes).map(function(c){return edNodeTypes[c].items.map(function(x){return'<option value="'+x.t+'"'+(n.type===x.t?' selected':'')+'>'+x.l+'</option>'}).join('')}).join('')+'</select></div>'):'')+
+    '<div class="p-row"><label>Icon</label><input id="prop-icon" value="'+(n.icon||'⬡')+'" maxlength="2"></div>'+
+    (isCustom?'<div class="p-row"><label>Action Type (custom)</label><input id="prop-custom-type" value="'+n.type+'" placeholder="e.g. my_custom_action"></div>':'')+
+    '<div class="p-row"><label>Category</label><select id="prop-category">'+catOpts+'</select></div>'+
+    '<div class="p-row"><label>Color</label><input type="color" id="prop-color" value="'+(n.color||'#6b7280')+'" style="width:100%;height:32px;padding:2px;cursor:pointer"></div>'+
+    '<div class="p-row"><label>Subtitle / Config</label><input id="prop-subtitle" value="'+(n.subtitle||'')+'" placeholder="e.g. key=value"></div>'+
+    '<div class="p-row"><label>Confidence</label><input type="range" min="0" max="100" value="'+(n.confidence*100|0)+'" oninput="updateNodeAttr(\''+id+'\',\'confidence\',this.value/100)"><span style="font-size:10px;color:var(--t3)">'+(n.confidence*100|0)+'%</span></div>'+
     '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1" id="save-props">Save</button><button class="btn btn-red" style="flex:1" id="delete-props">Delete</button></div>';
-  document.getElementById('save-props').onclick=function(){n.label=document.getElementById('prop-name').value;n.subtitle=document.getElementById('prop-subtitle').value;n.type=document.getElementById('prop-type').value;renderAll();toast('Updated '+n.label,'success')};
+  document.getElementById('save-props').onclick=function(){
+    n.label=document.getElementById('prop-name').value;
+    if(isCustom)n.type=document.getElementById('prop-custom-type').value;
+    else n.type=document.getElementById('prop-type').value;
+    n.icon=document.getElementById('prop-icon').value||'⬡';
+    n.category=document.getElementById('prop-category').value;
+    n.color=document.getElementById('prop-color').value;
+    n.subtitle=document.getElementById('prop-subtitle').value;
+    renderAll();toast('Updated '+n.label,'success');
+  };
   document.getElementById('delete-props').onclick=function(){editNodes=editNodes.filter(function(x){return x.id!==id});editEdges=editEdges.filter(function(e){return e.from!==id&&e.to!==id});selNodeIds.clear();renderAll();closeProps();toast('Node deleted','success')};
 }
 
