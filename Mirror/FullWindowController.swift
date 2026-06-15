@@ -464,6 +464,11 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
                 }
             }
 
+        case "analysis.addContext":
+            if let context = body["context"] as? String, !currentSessionId.isEmpty {
+                performAnalysis(extraContext: context)
+            }
+
         case "clipboard.read":
             let targetField = body["targetField"] as? String ?? ""
             let targetWV = targetWebView ?? webView!
@@ -582,7 +587,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         performAnalysis()
     }
 
-    private func performAnalysis() {
+    private func performAnalysis(extraContext: String? = nil) {
         let baseDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Mirror/Sessions/\(currentSessionId)")
 
@@ -599,7 +604,8 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         callJS(on: webView, "window.mirror.updateAnalysisProgress", args: [10, "Reading your recording..."])
 
-        let metadata = SessionPackager.shared.loadMetadata(from: baseDir) ?? [:]
+        var metadata = SessionPackager.shared.loadMetadata(from: baseDir) ?? [:]
+        if let ctx = extraContext { metadata["extraContext"] = ctx }
 
         analysisTask = AnalysisPipeline.analyze(events: events, sessionId: currentSessionId, metadata: metadata, progressCallback: { [weak self] msg in
             DispatchQueue.main.async {

@@ -117,6 +117,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
     <button class="btn btn-secondary" id="btn-toggle" onclick="toggleActive()" style="display:none">Activate</button>
     <span class="status-badge status-draft" id="wf-badge">Draft</span>
     <button class="btn btn-green" id="btn-deploy" onclick="deployWorkflow()" style="display:none">Deploy</button>
+    <button class="btn btn-secondary" id="btn-chat" onclick="toggleChat()" style="display:none">💬 AI Chat</button>
     <button class="btn btn-ghost" onclick="bridge('settings.open')">Settings</button>
   </header>
 
@@ -149,6 +150,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
       <div style="font-weight:600">Mirror is learning...</div>
       <div style="color:var(--t2);font-size:12px" id="an-status">Reading your recording...</div>
       <div style="width:240px;height:3px;background:#333;border-radius:2px;overflow:hidden"><div style="height:100%;background:var(--accent);width:0%;transition:width .5s" id="an-bar"></div></div>
+      <button id="btn-add-context" class="btn btn-secondary" onclick="window._addContext()" style="font-size:12px;margin-top:8px">💡 Add Context to Improve Results</button>
     </div>
 
     <!-- EDITOR VIEW -->
@@ -275,8 +277,59 @@ function showView(v){
   if(v==='record'){bridge('workflow.list');hideRunButtons()}
 }
 
-function showRunButtons(){document.getElementById('btn-run').style.display='';document.getElementById('btn-toggle').style.display='';document.getElementById('btn-deploy').style.display=''}
-function hideRunButtons(){document.getElementById('btn-run').style.display='none';document.getElementById('btn-toggle').style.display='none';document.getElementById('btn-deploy').style.display='none'}
+function showRunButtons(){document.getElementById('btn-run').style.display='';document.getElementById('btn-toggle').style.display='';document.getElementById('btn-deploy').style.display='';document.getElementById('btn-chat').style.display=''}
+function hideRunButtons(){document.getElementById('btn-run').style.display='none';document.getElementById('btn-toggle').style.display='none';document.getElementById('btn-deploy').style.display='none';document.getElementById('btn-chat').style.display='none'}
+
+function toggleChat(){
+  var c=document.getElementById('chat-panel');
+  if(c){c.style.display=c.style.display==='none'?'flex':'none';return}
+  var p=document.createElement('div');p.id='chat-panel';
+  p.style.cssText='display:flex;flex-direction:column;height:220px;background:var(--panel);border-top:1px solid #404040;flex-shrink:0';
+  p.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid #404040"><span style="font-weight:600;color:var(--t2);font-size:12px">💬 AI Chat</span><button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="toggleChat()">×</button></div><div id="chat-msgs" style="flex:1;overflow-y:auto;padding:10px;font-size:11px"></div><div style="display:flex;gap:8px;padding:8px 14px;border-top:1px solid #404040"><input id="chat-inp" style="flex:1;background:#171717;border:1px solid #404040;border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit" placeholder="e.g. Replace email with Slack, or Only invoices over $500" onkeydown="if(event.key===\'Enter\')sendChat()"><button class="btn btn-primary" onclick="sendChat()" style="font-size:12px">Send</button></div>';
+  document.getElementById('view-editor').appendChild(p);
+}
+
+function addChatMsg(role,msg){var el=document.getElementById('chat-msgs');if(!el)return;el.innerHTML+='<div style="margin-bottom:8px;padding:6px 10px;border-radius:8px;background:'+(role==='user'?'rgba(59,130,246,0.1)':'rgba(255,255,255,0.03)')+';color:'+(role==='user'?'#60a5fa':'var(--t2)')+'"><span style="font-weight:600;font-size:10px">'+(role==='user'?'You':'Mirror')+':</span> '+msg+'</div>';el.scrollTop=el.scrollHeight}
+
+function sendChat(){
+  var inp=document.getElementById('chat-inp');if(!inp||!inp.value.trim())return;
+  var msg=inp.value.trim();inp.value='';addChatMsg('user',msg);
+  // Simple pattern matching for common requests
+  var l=msg.toLowerCase();
+  if(l.includes('replace')||l.includes('change')||l.includes('instead')){
+    addChatMsg('ai','Got it. Select the node you want to change, then use the Properties panel (right side) to change its type. For example: click the Send Email node, then select "Slack Post" from the Action Type dropdown.');
+  }else if(l.includes('only')||l.includes('filter')||l.includes('condition')||l.includes('over')||l.includes('above')){
+    var val=msg.match(/\$?\d+/);var amt=val?val[0]:'X';
+    addChatMsg('ai','To add this condition: drag a "Filter" node from the Data category, connect it before the action node, and set the condition field to filter by the value you want (e.g. amount > '+amt+').');
+  }else if(l.includes('schedule')||l.includes('run')||l.includes('every')||l.includes('daily')||l.includes('weekly')){
+    addChatMsg('ai','To change the schedule: deploy the workflow, then use the Activate/Deactivate toggle. The schedule is set during deployment. Re-deploy with a new schedule to update.');
+  }else if(l.includes('slack')||l.includes('email')||l.includes('sheets')||l.includes('gmail')||l.includes('drive')){
+    addChatMsg('ai','To use a different service: drag the correct node from the sidebar palette (e.g. Slack Post, Gmail Send, Sheets Append), connect it, then delete the old node. Or use the Properties panel to change the node type.');
+  }else if(l.includes('delete')||l.includes('remove')){
+    addChatMsg('ai','Click the node you want to remove, then press Delete or use the Properties panel → Delete button. Or right-click the node and select Delete.');
+  }else{
+    addChatMsg('ai','You can customize any node by clicking it and using the Properties panel on the right. From there you can change: name, icon, action type, category, color, confidence, and more. For specific changes, try phrases like "Replace email with Slack" or "Only process invoices over $500".');
+  }
+}
+
+// Add Context button in analyzing view
+window._addContext=function(){
+  var c=document.getElementById('view-analyzing');
+  var existing=document.getElementById('ctx-input-row');
+  if(existing)return;
+  var row=document.createElement('div');row.id='ctx-input-row';
+  row.style.cssText='display:flex;flex-direction:column;gap:8px;width:100%;max-width:400px;margin-top:12px';
+  row.innerHTML='<textarea id="ctx-extra" style="width:100%;background:#171717;border:1px solid #404040;border-radius:8px;padding:8px 10px;color:var(--text);font-size:12px;outline:none;font-family:inherit;resize:vertical;min-height:60px" placeholder="Add more context to help Mirror understand... e.g. I was looking for unpaid invoices and logging them to my Accounts Payable sheet"></textarea><div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="submitContext()" style="font-size:12px">Submit Context</button><button class="btn btn-secondary" onclick="document.getElementById(\'ctx-input-row\').remove()" style="font-size:12px">Cancel</button></div>';
+  c.appendChild(row);
+};
+
+function submitContext(){
+  var t=document.getElementById('ctx-extra');if(!t||!t.value.trim())return;
+  bridge('analysis.addContext',{context:t.value.trim()});
+  document.getElementById('ctx-input-row').remove();
+  document.getElementById('an-status').textContent='Re-analyzing with your context...';
+  document.getElementById('an-bar').style.width='50%';
+}
 
 // ═══════ RECORDING ═══════
 function startRecording(){bridge('recording.start')}

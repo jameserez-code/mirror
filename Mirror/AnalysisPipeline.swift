@@ -242,6 +242,7 @@ struct AnalysisPipeline {
     static func buildUserPrompt(timeline: String, metadata: [String: Any], events: [EventTapManager.CapturedEvent], visionDescriptions: String = "") -> String {
         let duration = (metadata["duration"] as? Double) ?? 0
         let eventCount = (metadata["eventCount"] as? Int) ?? 0
+        let extraContext = (metadata["extraContext"] as? String) ?? ""
 
         let semanticActions = SemanticActionExtractor.extract(from: events)
         let semanticContext = SemanticActionExtractor.buildContextSummary(from: events)
@@ -258,6 +259,8 @@ struct AnalysisPipeline {
 
             VISION ANALYSIS (AI-described screenshots at 1fps, up to 120 frames):
             \(visionDescriptions.isEmpty ? "(No frames available)" : visionDescriptions)
+
+            \(extraContext.isEmpty ? "" : "USER-PROVIDED CONTEXT (highest priority — the user told us what they were doing):\n\(extraContext)\n")
 
             \(semanticContext)
 
