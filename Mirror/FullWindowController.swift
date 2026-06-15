@@ -454,9 +454,10 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         case "quicktest.run":
             if let action = body["action"] as? String {
+                let value = body["value"] as? String ?? ""
                 let targetWV = targetWebView ?? webView!
                 Task {
-                    let result = await quickTestAction(action: action)
+                    let result = await quickTestAction(action: action, value: value)
                     await MainActor.run {
                         callJS(on: targetWV, "window.mirror.onQuickTestResult", args: [result.success, result.message])
                     }
@@ -965,7 +966,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
     // MARK: - Quick Test Actions
 
-    private func quickTestAction(action: String) async -> (success: Bool, message: String) {
+    private func quickTestAction(action: String, value: String) async -> (success: Bool, message: String) {
         switch action {
         case "send_email":
             guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected. Go to Settings → Integrations.") }

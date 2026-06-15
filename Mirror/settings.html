@@ -508,31 +508,37 @@ function disconnectGoogle() {
 }
 
 var quickTests=[
-  {action:'gmail_search',label:'Gmail Search',icon:'G'},
-  {action:'send_email',label:'Send Test Email',icon:'✉'},
-  {action:'sheets_read',label:'Sheets Read',icon:'S'},
-  {action:'sheets_append',label:'Sheets Append',icon:'📊'},
-  {action:'drive_upload',label:'Drive Upload',icon:'⬆'},
-  {action:'slack_post',label:'Slack Post',icon:'#'},
-  {action:'http_request',label:'HTTP Request',icon:'🌐'},
-  {action:'wait',label:'Wait Test',icon:'⏱'},
-  {action:'notify_user',label:'Notify Test',icon:'🔔'},
-  {action:'run_script',label:'Script Test',icon:'⚙'},
-  {action:'extract_fields',label:'Extract Test',icon:'✂'},
-  {action:'screenshot',label:'Screenshot',icon:'📸'}
+  {action:'gmail_search',label:'Gmail Search',icon:'G',param:'query',placeholder:'in:inbox',default:'in:inbox'},
+  {action:'send_email',label:'Send Email',icon:'✉',param:'to',placeholder:'you@example.com',default:''},
+  {action:'sheets_append',label:'Sheets Append',icon:'📊',param:'spreadsheetId',placeholder:'Sheet ID from URL',default:''},
+  {action:'sheets_read',label:'Sheets Read',icon:'S',param:'spreadsheetId',placeholder:'Sheet ID from URL',default:''},
+  {action:'slack_post',label:'Slack Post',icon:'#',param:'channel',placeholder:'#general',default:'#general'},
+  {action:'http_request',label:'HTTP Request',icon:'🌐',param:'url',placeholder:'https://httpbin.org/get',default:'https://httpbin.org/get'},
+  {action:'run_script',label:'Run Script',icon:'⚙',param:'command',placeholder:'echo Hello',default:'echo "Mirror test"'},
+  {action:'drive_upload',label:'Drive Upload',icon:'⬆',param:'path',placeholder:'/tmp/test.txt',default:'/tmp/mirror_test.txt'},
+  {action:'notify_user',label:'Notify',icon:'🔔',param:'description',placeholder:'Test notification',default:'Mirror test notification'},
+  {action:'wait',label:'Wait',icon:'⏱',param:'duration',placeholder:'2',default:'2'},
+  {action:'extract_fields',label:'Extract',icon:'✂',param:'data',placeholder:'Text to extract from',default:'Invoice #12345 Amount: $99.99'},
+  {action:'screenshot',label:'Screenshot',icon:'📸',param:'path',placeholder:'/tmp/ss.png',default:''}
 ];
 
 function renderQuickTests(){
   var el=document.getElementById('quick-test-buttons');
-  el.innerHTML=quickTests.map(function(t){
-    return '<button class="btn-permission" onclick="runQuickTest(\''+t.action+'\',\''+t.label+'\')" style="font-size:11px">'+t.icon+' '+t.label+'</button>';
+  el.style.display='flex';el.style.flexDirection='column';el.style.gap='8px';
+  el.innerHTML=quickTests.map(function(t,i){
+    return '<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:8px;padding:6px 10px">'+
+      '<span style="width:20px;text-align:center;flex-shrink:0">'+t.icon+'</span>'+
+      '<span style="font-size:11px;font-weight:500;width:90px;flex-shrink:0;color:var(--text2)">'+t.label+'</span>'+
+      '<input id="qt-param-'+i+'" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text);font-size:11px;outline:none;font-family:inherit" placeholder="'+t.placeholder+'" value="'+t.default+'">'+
+      '<button class="btn-permission" onclick="runQuickTest(\''+t.action+'\',\''+t.label+'\',document.getElementById(\'qt-param-'+i+'\').value)" style="font-size:11px;flex-shrink:0">Test</button></div>';
   }).join('');
 }
+}
 
-function runQuickTest(action,label){
+function runQuickTest(action,label,value){
   var r=document.getElementById('quick-test-results');
   r.innerHTML='<span style="color:#94a3b8">Testing '+label+'...</span>';
-  bridge('quicktest.run',{action:action});
+  bridge('quicktest.run',{action:action,value:value||''});
   window._lastTest=label;
 }
 
