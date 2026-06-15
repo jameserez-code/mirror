@@ -19,14 +19,17 @@ class GoogleOAuthManager {
 
     func startAuthFlow(completion: @escaping (Result<Void, Error>) -> Void) {
         guard !GoogleOAuthConfig.clientId.contains("YOUR_CLIENT_ID") else {
+            print("[Mirror OAuth] ERROR: Config.swift has placeholder credentials. Get real ones from console.cloud.google.com")
             completion(.failure(OAuthError.configMissing))
             return
         }
         guard !GoogleOAuthConfig.clientSecret.contains("YOUR_CLIENT_SECRET") else {
+            print("[Mirror OAuth] ERROR: Config.swift has placeholder secret.")
             completion(.failure(OAuthError.configMissing))
             return
         }
 
+        print("[Mirror OAuth] Starting auth flow...")
         codeVerifier = generateCodeVerifier()
         let codeChallenge = generateCodeChallenge(from: codeVerifier)
 
@@ -74,6 +77,7 @@ class GoogleOAuthManager {
         }
 
         NSWorkspace.shared.open(authURL)
+        print("[Mirror OAuth] Browser opened. Waiting for callback on port 8765...")
     }
 
     // MARK: - Token Exchange
@@ -139,6 +143,7 @@ class GoogleOAuthManager {
                 CredentialStore.shared.save(key: "google_access_token", value: accessToken)
                 CredentialStore.shared.save(key: "google_refresh_token", value: refreshToken)
                 CredentialStore.shared.save(key: "google_token_expiry", value: ISO8601DateFormatter().string(from: expiryDate))
+                print("[Mirror OAuth] Tokens saved successfully. Expires: \(expiryDate)")
 
                 DispatchQueue.main.async { completion(.success(())) }
             } else if let errorDesc = json["error_description"] as? String {
@@ -345,6 +350,7 @@ class LocalCallbackServer {
         guard bytesRead > 0 else { close(client); return }
 
         let request = String(decoding: buffer[0..<Int(bytesRead)], as: UTF8.self)
+        print("[Mirror OAuth] Callback received: \(request.prefix(200))")
 
         // Check for error response from Google
         if request.contains("error=access_denied") {
