@@ -109,6 +109,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
   <header class="hdr">
     <div class="hdr-icon">M</div>
     <div class="hdr-info"><div class="hdr-title" id="hdr-name">Mirror</div><div class="hdr-subtitle" id="hdr-status">Ready</div></div>
+    <button class="btn btn-ghost" onclick="showView('record')">⌂ Home</button>
     <div class="hdr-spacer"></div>
     <button class="btn btn-ghost" onclick="showView('record')">● Record</button>
     <button class="btn btn-ghost" onclick="showView('editor')">Editor</button>
@@ -177,6 +178,13 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
         </aside>
       </div>
       <div id="trash-zone" style="height:0;background:transparent;border-top:2px dashed transparent;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .2s;flex-shrink:0">🗑 Drop here to delete</div>
+      <div id="exec-feed" style="display:none;height:200px;background:var(--panel);border-top:1px solid #404040;overflow-y:auto;padding:10px;font-size:11px;flex-shrink:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span style="font-weight:600;color:var(--t2);text-transform:uppercase;font-size:10px;letter-spacing:.05em" id="exec-feed-title">Execution Feed</span>
+          <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px" onclick="document.getElementById('exec-feed').style.display='none'">×</button>
+        </div>
+        <div id="exec-feed-body"></div>
+      </div>
     </div>
   </div>
 
@@ -515,15 +523,39 @@ function doRedo(){if(undoIdx+1<undoStack.length){undoIdx++;var s=undoStack[undoI
 function executeWorkflow(){
   if(!wfId){toast('Deploy the workflow first','error');return}
   editNodes.forEach(function(n){nodeRunStates[n.id]='idle'});renderAll();
-  var nodes=editNodes.slice(),i=0,results=[];
+  var feed=document.getElementById('exec-feed'),body=document.getElementById('exec-feed-body');
+  feed.style.display='block';body.innerHTML='';
+  document.getElementById('exec-feed-title').textContent='Execution Feed — Running...';
+  var nodes=editNodes.slice(),i=0,results=[],startTime=Date.now();
+  function log(icon,msg,color){var t=Date.now();body.innerHTML+='<div style="padding:4px 0;color:'+(color||'var(--t2)')+';border-bottom:1px solid rgba(255,255,255,0.03);display:flex;gap:8px"><span style="color:var(--t3);width:48px;flex-shrink:0">'+(new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}))+'</span><span>'+icon+'</span><span style="flex:1">'+msg+'</span></div>';body.scrollTop=body.scrollHeight}
   function runNext(){
-    if(i>=nodes.length){toast('Complete: '+results.filter(function(r){return r.ok}).length+'/'+nodes.length+' ok','success');bridge('editor.runHistory');return}
-    var n=nodes[i];nodeRunStates[n.id]='running';renderAll();document.getElementById('hdr-status').textContent='Running step '+(i+1)+'/'+nodes.length;
-    bridge('editor.executeNode',{nodeId:n.id,action:n.type,label:n.label,provider:n.provider||null});
-    var started=Date.now(),timeout=setTimeout(function(){nodeRunStates[n.id]='failure';renderAll();results.push({ok:false,err:'Timeout'});i++;runNext()},30000);
-    window._onNodeResult=function(success,output,error){clearTimeout(timeout);nodeRunStates[n.id]=success?'success':'failure';renderAll();results.push({ok:success,out:output||'',err:error||''});if(!success)toast('Failed: '+n.label+' — '+error,'error');i++;setTimeout(runNext,400)};
+    if(i>=nodes.length){
+      var ok=results.filter(function(r){return r.ok}).length,total=nodes.length,dur=((Date.now()-startTime)/1000).toFixed(1);
+      log(total===ok?'✅':'⚠','Complete: '+ok+'/'+total+' steps passed in '+dur+'s',total===ok?'#4ade80':'#eab308');
+      document.getElementById('exec-feed-title').textContent='Execution Feed — '+(total===ok?'✓ Success':'⚠ Failed')+' ('+dur+'s)';
+      document.getElementById('hdr-status').textContent=total===ok?'Complete':'Failed';bridge('editor.runHistory');
+      if(total!==ok){log('💡','Tip: click any failed node to inspect it. Check API credentials in Settings → Integrations.','#fca5a5')}
+      return;
+    }
+    var n=nodes[i];nodeRunStates[n.id]='running';renderAll();
+    document.getElementById('hdr-status').textContent='Step '+(i+1)+'/'+nodes.length;
+    log('▶','Running: '+n.label,'#60a5fa');
+    bridge('editor.executeNode',{nodeId:n.id,action:n.type,label:n.label,provider:n.provider||null,description:n.subtitle||''});
+    var started=Date.now(),timeout=setTimeout(function(){
+      nodeRunStates[n.id]='failure';renderAll();
+      var e='Timeout after 30s — the step may be waiting for an external API or hung. Check your network connection.';
+      results.push({ok:false,err:e,node:n.label,dur:30000});log('✗','FAILED: '+n.label+' — '+e,'#fca5a5');i++;runNext();
+    },30000);
+    window._onNodeResult=function(success,output,error){
+      clearTimeout(timeout);var dur=Date.now()-started;
+      nodeRunStates[n.id]=success?'success':'failure';renderAll();
+      var out=output||'';if(success)log('✓','OK: '+n.label+(out?' → '+out:'')+' ('+dur+'ms)','#4ade80');
+      else log('✗','FAILED: '+n.label+' — '+(error||'Unknown error')+(out?' [Output: '+out+']':'')+' ('+dur+'ms)','#fca5a5');
+      results.push({ok:success,out:out,err:error||'',node:n.label,dur:dur});i++;setTimeout(runNext,300);
+    };
   }
   runNext();document.getElementById('hdr-status').textContent='Running...';
+  log('🚀','Workflow started — executing '+nodes.length+' steps','#a78bfa');
 }
 
 // ═══════ KEYBOARD ═══════
