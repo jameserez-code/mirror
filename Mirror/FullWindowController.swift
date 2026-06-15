@@ -969,12 +969,11 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     private func quickTestAction(action: String, value: String) async -> (success: Bool, message: String) {
         switch action {
         case "send_email":
-            guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected. Go to Settings → Integrations.") }
-            let to = UserDefaults.standard.string(forKey: "test_email_to") ?? "test@example.com"
-            do {
-                try await GmailConnector().send(to: to, subject: "Mirror Test Email", body: "This is a test email from Mirror. If you received this, Gmail integration is working correctly. Sent at \(Date().formatted()).")
-                return (true, "Test email sent to \(to)")
-            } catch { return (false, error.localizedDescription) }
+            guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected.") }
+            let to = value.isEmpty ? (UserDefaults.standard.string(forKey: "test_email_to") ?? "test@example.com") : value
+            if !value.isEmpty { UserDefaults.standard.set(value, forKey: "test_email_to") }
+            do { try await GmailConnector().send(to: to, subject: "Mirror Test", body: "Test from Mirror. \(Date().formatted())."); return (true, "Sent to \(to)") }
+            catch { return (false, error.localizedDescription) }
 
         case "sheets_append":
             guard GoogleOAuthManager.isConnected() else { return (false, "Google not connected.") }

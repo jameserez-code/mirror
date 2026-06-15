@@ -501,10 +501,20 @@ function connectGoogle() {
   var btn = document.getElementById('google-connect-btn');
   if (btn) { btn.textContent = 'Connecting...'; btn.disabled = true; }
   bridge('integrations.connectGoogle');
+  // Safety timeout: revert after 90s if no response
+  setTimeout(function(){
+    var b=document.getElementById('google-connect-btn');
+    if(b&&b.disabled){b.textContent='Connect';b.disabled=false}
+  },90000);
 }
 
 function disconnectGoogle() {
   bridge('integrations.disconnectGoogle');
+  // Immediately update UI
+  var btn=document.getElementById('google-connect-btn');
+  if(btn){btn.textContent='Connect';btn.disabled=false}
+  var dot=document.getElementById('google-status-dot');
+  if(dot)dot.className='status-dot denied';
 }
 
 var quickTests=[
@@ -532,7 +542,6 @@ function renderQuickTests(){
       '<input id="qt-param-'+i+'" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:4px 8px;color:var(--text);font-size:11px;outline:none;font-family:inherit" placeholder="'+t.placeholder+'" value="'+t.default+'">'+
       '<button class="btn-permission" onclick="runQuickTest(\''+t.action+'\',\''+t.label+'\',document.getElementById(\'qt-param-'+i+'\').value)" style="font-size:11px;flex-shrink:0">Test</button></div>';
   }).join('');
-}
 }
 
 function runQuickTest(action,label,value){
