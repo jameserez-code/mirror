@@ -59,15 +59,21 @@ cp Mirror/settings.html "${RESOURCES}/"
 SIGN_IDENTITY="Mirror Dev"
 if security find-identity -v -p codesigning 2>/dev/null | grep -q "${SIGN_IDENTITY}"; then
     echo "Signing with identity: ${SIGN_IDENTITY}"
-    # Grant codesign access to the private key (prevents interactive prompt)
     security unlock-keychain ~/Library/Keychains/login.keychain-db 2>/dev/null || true
     codesign --force --deep --sign "${SIGN_IDENTITY}" --entitlements entitlements.plist --timestamp=none "${APP_DIR}" 2>&1 || {
-        echo "Signing failed (keychain access prompt?) — falling back to ad-hoc"
+        echo "Signing failed — falling back to ad-hoc"
         codesign --force --deep --sign - --entitlements entitlements.plist "${APP_DIR}"
     }
 else
-    echo "No '${SIGN_IDENTITY}' cert found — using ad-hoc signing."
-    echo "Run: scripts/create-dev-cert.sh to create a persistent identity."
+    echo "No 'Mirror Dev' cert found — using ad-hoc signing."
+    echo ""
+    echo "━━━ TO STOP REPETITIVE KEYCHAIN PROMPTS ━━━"
+    echo "1. Open Keychain Access"
+    echo "2. Keychain Access → Certificate Assistant → Create Certificate"
+    echo "3. Name: Mirror Dev  |  Type: Code Signing  |  Create"
+    echo "4. Then run: ./build.sh"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
     codesign --force --deep --sign - --entitlements entitlements.plist "${APP_DIR}"
 fi
 
