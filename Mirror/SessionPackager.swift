@@ -47,7 +47,7 @@ class SessionPackager {
         }
 
         let sortedFrames = contents.sorted { $0.lastPathComponent < $1.lastPathComponent }
-        let sampleStride = max(1, sortedFrames.count / 8)
+        let sampleStride = max(1, sortedFrames.count / 20)
         var contextParts: [String] = []
 
         for i in stride(from: 0, to: sortedFrames.count, by: sampleStride) {
@@ -56,7 +56,7 @@ class SessionPackager {
                 let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !text.isEmpty {
                     let frameName = framePath.lastPathComponent
-                    contextParts.append("[\(frameName) OCR]:\n\(text.prefix(500))")
+                    contextParts.append("[\(frameName) OCR]:\n\(text.prefix(1500))")
                 }
             }
         }

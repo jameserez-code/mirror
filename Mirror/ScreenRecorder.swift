@@ -8,7 +8,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var sessionDir: URL?
     private var frameCount: Int = 0
     private var isRecording: Bool = false
-    private let frameInterval: TimeInterval = 1.0
+    private let frameInterval: TimeInterval = 0.5
     private var lastFrameTime: TimeInterval = 0
     private let processingQueue = DispatchQueue(label: "com.mirror.screenrecorder.processing", qos: .utility)
 

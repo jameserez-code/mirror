@@ -244,21 +244,41 @@ struct AnalysisPipeline {
         let eventCount = (metadata["eventCount"] as? Int) ?? 0
 
         let semanticActions = SemanticActionExtractor.extract(from: events)
+        let semanticContext = SemanticActionExtractor.buildContextSummary(from: events)
         let intentPlan = WorkflowIntentExtractor.extract(from: semanticActions, events: events)
         let graph = WorkflowGraphBuilder.buildFullGraph(from: semanticActions, artifacts: intentPlan.artifacts, intent: intentPlan.intent, events: events)
         let entityGraph = EntityGraphBuilder.build(events: events, actions: semanticActions, artifacts: intentPlan.artifacts, graph: graph)
 
+        var state = BeliefStateEngine.initialize(sessionId: "analysis")
+        BeliefStateEngine.update(&state, events: events, partialActions: semanticActions, partialArtifacts: intentPlan.artifacts)
+        let snapshot = BeliefStateEngine.snapshot(from: state)
+
         return """
-            Activity Log:
-            Duration: \(String(format: "%.1f", duration))s | Events: \(eventCount)
+            Recording Summary: \(String(format: "%.1f", duration))s, \(eventCount) events captured. Screen frames sampled every 0.5s with OCR.
+
+            \(semanticContext)
+
+            WORKFLOW UNDERSTANDING (pre-extracted — verify against timeline below):
+            Intent: \(snapshot.projectedIntent?.objective ?? "unknown") (\(snapshot.projectedIntent?.domain ?? "general")) @ \(String(format: "%.0f", (snapshot.projectedIntent?.confidence ?? 0) * 100))%
+            Goal: \(snapshot.projectedGoal?.type ?? "general_automation") @ \(String(format: "%.0f", (snapshot.projectedGoal?.confidence ?? 0) * 100))%
+            Belief convergence: \(snapshot.converged ? "high" : "low") — entropy: \(String(format: "%.2f", snapshot.overallEntropy))
+            Entities detected: \(snapshot.projectedEntityCount) | Nodes detected: \(snapshot.projectedNodeCount)
 
             \(EntityGraphBuilder.buildEntityGraphSummary(from: entityGraph))
 
             \(WorkflowGraphBuilder.buildGraphSummary(from: graph))
 
+            RAW EVENT TIMELINE + OCR TEXT:
             \(timeline)
 
-            Analyze this recording and output the workflow JSON. The Entity Graph above shows the data layer — what information exists, where it came from, and where it goes. The Workflow Graph shows the action layer. Use both to produce accurate, field-aware workflow steps with data flow annotations (inputFrom/outputAs). Focus on the repeatable pattern and output valid JSON.
+            CRITICAL: The pre-extracted data above is heuristic — it may be wrong. You are the primary analysis engine. Compare the heuristic suggestions against the raw timeline carefully. The screenshots are captured every 0.5 seconds with OCR on 20 sampled frames. Look for:
+            1. What app/site the user was actually using (check URLs, app names, OCR window titles)
+            2. What data was typed, copied, or pasted (check clipboard snapshots and key sequences)
+            3. What actions were performed (clicks, keyboard shortcuts, form submissions)
+            4. The ORDER of operations — was searching done before composing? Before pasting?
+            5. Data flow — did clipboard content end up in a form field? Did a spreadsheet URL appear in the browser?
+
+            Output valid JSON matching the Workflow schema. Every step MUST have: id, action (from the action list), description, executionType, enabled, requiresReview. Add inputFrom/outputAs for data flow between steps. Cloud steps (gmail_*, sheets_*, http_request, slack_post, send_email) are preferred over desktop replay when the activity clearly happens in those apps.
             """
     }
 
