@@ -100,6 +100,7 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
 /* Toast */
 .toast{position:fixed;bottom:18px;left:18px;background:#171717;border:1px solid #404040;padding:10px 14px;border-radius:10px;font-size:12px;color:#e5e7eb;z-index:60;transform:translateY(120%);transition:transform .25s}
 .toast.show{transform:translateY(0)}
+#trash-zone.drag-over{height:48px;background:rgba(239,68,68,0.08);border-color:var(--red);color:#fca5a5}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
@@ -150,21 +151,32 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
     </div>
 
     <!-- EDITOR VIEW -->
-    <div id="view-editor" style="display:none;flex:1">
-      <div class="sb" id="edit-sb">
-        <div class="sb-search"><input id="node-filter" placeholder="Search nodes..." oninput="filterNodes(this.value)"></div>
-        <div id="node-palette"></div>
+    <div id="view-editor" style="display:none;flex:1;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--panel);border-bottom:1px solid #404040;font-size:12px">
+        <span style="color:var(--t2);font-weight:500">Workflow:</span>
+        <select id="wf-selector" style="background:#171717;border:1px solid #404040;border-radius:6px;color:var(--text);padding:5px 10px;font-size:12px;outline:none;font-family:inherit;min-width:200px" onchange="openWF(this.value,this.options[this.selectedIndex].text)">
+          <option value="">— Select a deployed workflow —</option>
+        </select>
+        <span class="hdr-spacer"></span>
+        <input id="editor-search" placeholder="Search in workflow..." style="background:#171717;border:1px solid #404040;border-radius:6px;color:var(--text);padding:5px 10px;font-size:12px;outline:none;font-family:inherit;width:220px" oninput="searchInEditor(this.value)">
       </div>
-      <div class="cv" id="editor-cv">
-        <div class="cv-content" id="cv-content">
-          <svg class="edge-layer" id="edges-svg"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" fill="#6b7280"/></marker><marker id="arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" fill="#60a5fa"/></marker></defs></svg>
-          <div id="nodes-layer"></div>
+      <div style="display:flex;flex:1;overflow:hidden">
+        <div class="sb" id="edit-sb">
+          <div class="sb-search"><input id="node-filter" placeholder="Search nodes..." oninput="filterNodes(this.value)"></div>
+          <div id="node-palette"></div>
         </div>
+        <div class="cv" id="editor-cv" style="flex:1">
+          <div class="cv-content" id="cv-content">
+            <svg class="edge-layer" id="edges-svg"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" fill="#6b7280"/></marker><marker id="arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L7,3 z" fill="#60a5fa"/></marker></defs></svg>
+            <div id="nodes-layer"></div>
+          </div>
+        </div>
+        <aside class="props closed" id="props-panel">
+          <div class="props-header"><span class="props-title">Node properties</span><button class="props-close" onclick="closeProps()">×</button></div>
+          <div class="props-body" id="props-body"></div>
+        </aside>
       </div>
-      <aside class="props closed" id="props-panel">
-        <div class="props-header"><span class="props-title">Node properties</span><button class="props-close" onclick="closeProps()">×</button></div>
-        <div class="props-body" id="props-body"></div>
-      </aside>
+      <div id="trash-zone" style="height:0;background:transparent;border-top:2px dashed transparent;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .2s;flex-shrink:0">🗑 Drop here to delete</div>
     </div>
   </div>
 
@@ -238,12 +250,27 @@ function toast(msg,type){
 // ═══════ WORKFLOW LIST ═══════
 function renderWFList(wfs){
   deployedWorkflows=wfs||[];var el=document.getElementById('wf-list');
-  if(!wfs||!wfs.length){el.innerHTML='<div style="color:var(--t3);text-align:center;padding:30px">No automations yet</div>';return}
-  var h='';wfs.forEach(function(w){var s=w.trigger?.description||'Manual';h+='<div style="background:var(--panel);border:1px solid #404040;border-radius:8px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="openWF(\''+w.id+'\',\''+w.name+'\')"><div><div style="font-weight:500">'+w.name+'</div><div style="font-size:11px;color:var(--t3)">'+s+'</div></div><div style="font-size:11px;padding:2px 10px;border-radius:100px;font-weight:600;background:'+(w.enabled?'rgba(52,211,153,0.1)':'rgba(156,163,175,0.1)')+';color:'+(w.enabled?'var(--green)':'var(--t2)')+'">'+(w.enabled?'Active':'Paused')+'</div></div>'});el.innerHTML=h
+  if(!wfs||!wfs.length){el.innerHTML='<div style="color:var(--t3);text-align:center;padding:30px">No automations yet</div>';updateWFSel();return}
+  var h='';wfs.forEach(function(w){var s=w.trigger?.description||'Manual';h+='<div style="background:var(--panel);border:1px solid #404040;border-radius:8px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="openWF(\''+w.id+'\',\''+w.name+'\')"><div><div style="font-weight:500">'+w.name+'</div><div style="font-size:11px;color:var(--t3)">'+s+'</div></div><div style="font-size:11px;padding:2px 10px;border-radius:100px;font-weight:600;background:'+(w.enabled?'rgba(52,211,153,0.1)':'rgba(156,163,175,0.1)')+';color:'+(w.enabled?'var(--green)':'var(--t2)')+'">'+(w.enabled?'Active':'Paused')+'</div></div>'});el.innerHTML=h;updateWFSel()
+}
+
+function updateWFSel(){
+  var sel=document.getElementById('wf-selector');if(!sel)return;
+  sel.innerHTML='<option value="">— Select a deployed workflow —</option>';
+  deployedWorkflows.forEach(function(w){sel.innerHTML+='<option value="'+w.id+'">'+w.name+'</option>'});
+}
+
+function searchInEditor(q){
+  if(!q){document.querySelectorAll('.node').forEach(function(n){n.style.opacity='1'});return}
+  document.querySelectorAll('.node').forEach(function(n){
+    var text=n.querySelector('.node-label')?.textContent||'';
+    n.style.opacity=text.toLowerCase().includes(q.toLowerCase())?'1':'0.15';
+  });
 }
 
 function openWF(id,name){
   wfId=id;showRunButtons();document.getElementById('hdr-name').textContent=name;
+  var sel=document.getElementById('wf-selector');if(sel)sel.value=id;
   var w=deployedWorkflows.find(function(x){return x.id===id});
   if(w){var b=document.getElementById('wf-badge');if(w.enabled){b.textContent='Active';b.className='status-badge status-active'}else{b.textContent='Draft';b.className='status-badge status-draft'}}
   bridge('editor.workflowDetail',{workflowId:id});showView('editor');
@@ -466,6 +493,12 @@ window.mirror={
   onDeployed:function(ok,name){document.getElementById('wf-badge').textContent=ok?'Active':'Draft';document.getElementById('wf-badge').className=ok?'status-badge status-active':'status-badge status-draft';toast(ok?'Deployed: '+name:'Deploy failed','success');bridge('workflow.list')},
   loadSettings:function(){},updatePermissions:function(){},setActivityList:function(){},showKeyTestResult:function(){},showGoogleTestResults:function(){},setWorkflowHealth:function(){}
 };
+
+// Trash zone
+var trashZone=document.getElementById('trash-zone');
+trashZone.addEventListener('dragover',function(e){e.preventDefault();trashZone.classList.add('drag-over')});
+trashZone.addEventListener('dragleave',function(){trashZone.classList.remove('drag-over')});
+trashZone.addEventListener('drop',function(e){e.preventDefault();trashZone.classList.remove('drag-over');deleteSelectedNodes()});
 
 // Reverse bridge
 window.mirrorBridge={receiveMessage:function(msg){if(msg&&msg.type==='menuBarStartRecording'){showView('record');setTimeout(startRecording,100)}}};
