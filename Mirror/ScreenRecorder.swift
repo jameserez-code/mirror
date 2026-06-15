@@ -8,7 +8,7 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
     private var sessionDir: URL?
     private var frameCount: Int = 0
     private var isRecording: Bool = false
-    private let frameInterval: TimeInterval = 0.5
+    private let frameInterval: TimeInterval = 1.0
     private var lastFrameTime: TimeInterval = 0
     private let processingQueue = DispatchQueue(label: "com.mirror.screenrecorder.processing", qos: .utility)
 
@@ -63,7 +63,16 @@ class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
         lastFrameTime = now
 
         guard let imageBuffer = sampleBuffer.imageBuffer else { return }
-        let ciImage = CIImage(cvImageBuffer: imageBuffer)
+        var ciImage = CIImage(cvImageBuffer: imageBuffer)
+
+        // Downsize to ~1MP for vision API efficiency
+        let targetMP: Double = 1_000_000
+        let currentPixels = ciImage.extent.width * ciImage.extent.height
+        if currentPixels > targetMP {
+            let scale = sqrt(targetMP / currentPixels)
+            ciImage = ciImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        }
+
         let context = CIContext()
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
 

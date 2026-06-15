@@ -601,7 +601,12 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         let metadata = SessionPackager.shared.loadMetadata(from: baseDir) ?? [:]
 
-        analysisTask = AnalysisPipeline.analyze(events: events, sessionId: currentSessionId, metadata: metadata) { [weak self] result in
+        analysisTask = AnalysisPipeline.analyze(events: events, sessionId: currentSessionId, metadata: metadata, progressCallback: { [weak self] msg in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.callJS(on: self.webView, "window.mirror.updateAnalysisProgress", args: [50, msg])
+            }
+        }) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 switch result {

@@ -39,7 +39,7 @@ struct Settings {
     }
 
     static var openRouterModel: String {
-        get { defaults.string(forKey: Key.openRouterModel.rawValue) ?? "anthropic/claude-sonnet-4.6" }
+        get { defaults.string(forKey: Key.openRouterModel.rawValue) ?? "anthropic/claude-3.5-haiku" }
         set { defaults.set(newValue, forKey: Key.openRouterModel.rawValue) }
     }
 

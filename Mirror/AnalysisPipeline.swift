@@ -239,7 +239,7 @@ struct AnalysisPipeline {
 
     // MARK: - User Prompt Builder
 
-    static func buildUserPrompt(timeline: String, metadata: [String: Any], events: [EventTapManager.CapturedEvent]) -> String {
+    static func buildUserPrompt(timeline: String, metadata: [String: Any], events: [EventTapManager.CapturedEvent], visionDescriptions: String = "") -> String {
         let duration = (metadata["duration"] as? Double) ?? 0
         let eventCount = (metadata["eventCount"] as? Int) ?? 0
 
@@ -254,11 +254,14 @@ struct AnalysisPipeline {
         let snapshot = BeliefStateEngine.snapshot(from: state)
 
         return """
-            Recording Summary: \(String(format: "%.1f", duration))s, \(eventCount) events captured. Screen frames sampled every 0.5s with OCR.
+            Recording Summary: \(String(format: "%.1f", duration))s, \(eventCount) events captured.
+
+            VISION ANALYSIS (AI-described screenshots at 1fps, up to 120 frames):
+            \(visionDescriptions.isEmpty ? "(No frames available)" : visionDescriptions)
 
             \(semanticContext)
 
-            WORKFLOW UNDERSTANDING (pre-extracted — verify against timeline below):
+            WORKFLOW UNDERSTANDING (pre-extracted — verify against vision + timeline):
             Intent: \(snapshot.projectedIntent?.objective ?? "unknown") (\(snapshot.projectedIntent?.domain ?? "general")) @ \(String(format: "%.0f", (snapshot.projectedIntent?.confidence ?? 0) * 100))%
             Goal: \(snapshot.projectedGoal?.type ?? "general_automation") @ \(String(format: "%.0f", (snapshot.projectedGoal?.confidence ?? 0) * 100))%
             Belief convergence: \(snapshot.converged ? "high" : "low") — entropy: \(String(format: "%.2f", snapshot.overallEntropy))
@@ -288,6 +291,7 @@ struct AnalysisPipeline {
     static func analyze(events: [EventTapManager.CapturedEvent],
                         sessionId: String,
                         metadata: [String: Any],
+                        progressCallback: ((String) -> Void)? = nil,
                         completion: @escaping (Result<Workflow, AnalysisError>) -> Void) -> URLSessionDataTask? {
         let sessionDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Mirror/Sessions/\(sessionId)")
@@ -299,19 +303,35 @@ struct AnalysisPipeline {
             timeline = SessionPackager.shared.buildActivityTimeline(events: events)
         }
 
-        let userPrompt = buildUserPrompt(timeline: timeline, metadata: metadata, events: events)
+        // Stage 1: Vision analysis on frames (async in background)
+        progressCallback?("Analyzing screenshots with vision AI...")
+        Task {
+            var visionContext = ""
+            let framesDir = sessionDir.appendingPathComponent("frames")
+            if FileManager.default.fileExists(atPath: framesDir.path) {
+                visionContext = await VisionFrameAnalyzer.analyzeFrames(sessionDir: sessionDir) { current, total in
+                    progressCallback?("Vision: \(current)/\(total) frames analyzed")
+                }
+            }
 
-        let provider = Settings.apiProvider
-        switch provider {
-        case "anthropic":
-            return analyzeWithAnthropic(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
-        case "openai":
-            return analyzeWithOpenAI(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
-        case "openrouter":
-            return analyzeWithOpenRouter(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
-        default:
-            return analyzeWithOpenRouter(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
+            // Stage 2: Main analysis with vision context
+            progressCallback?("Generating workflow...")
+            let userPrompt = buildUserPrompt(timeline: timeline, metadata: metadata, events: events, visionDescriptions: visionContext)
+
+            let provider = Settings.apiProvider
+            switch provider {
+            case "anthropic":
+                _ = analyzeWithAnthropic(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
+            case "openai":
+                _ = analyzeWithOpenAI(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
+            case "openrouter":
+                _ = analyzeWithOpenRouter(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
+            default:
+                _ = analyzeWithOpenRouter(systemPrompt: systemPrompt, userPrompt: userPrompt, completion: completion)
+            }
         }
+
+        return nil
     }
 
     // MARK: - Anthropic API
