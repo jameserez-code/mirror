@@ -79,163 +79,138 @@ struct AnalysisPipeline {
     // MARK: - System Prompt
 
     static let systemPrompt = """
-        You are Mirror's workflow intelligence engine. You convert raw screen recordings into structured, deployable automations.
+        You are Mirror's expert workflow automation engine. You create production-ready automations that actually work.
 
-        You receive an activity log with:
-        - Keyboard/mouse events with timestamps and target application names
-        - OCR-extracted text from screen captures showing what the user saw
-        - Clipboard snapshots
-        - Browser URLs when visible
+        ## WORKFLOW DECOMPOSITION RULES
 
-        Your job:
-        1. Identify the CORE workflow — strip navigation noise, auth setup, and dead ends
-        2. Determine the best trigger (schedule or event)
-        3. Generate steps that are SEMANTIC and REUSABLE — not fragile coordinate-based replays
-        4. Map steps to automation-ready actions that work locally AND in n8n/Zapier
-        5. Flag steps needing human review (credentials, destructive actions, low confidence)
+        Break every workflow into these distinct STEP TYPES. Never merge steps — each action is its own step:
 
-        CRITICAL RULES:
-        - Never include login/authentication steps — flag them as needing review
-        - Never replay raw click coordinates — promote "click at (x,y)" to semantic actions like "open_application" or "type_text"
-        - Group rapid keystrokes into meaningful typing actions ("type_text" with the full string)
-        - When OCR shows form fields, labels, or button text, use that as context to name steps
-        - If the user copies data, that's likely an "extract_data" step — data flows INTO clipboard
-        - If the user pastes, that's likely "paste_text" — data flows FROM clipboard
-        - Prefer high-level actions: open_url > open_application > click > type_text
-        - Add "inputFrom" references when one step's output feeds another step's input
-        - Every step gets a unique "id" (e.g., "step1", "step2")
-        - Confidence reflects how automatable this workflow is without human intervention
-        - Output ONLY valid JSON. No prose, no markdown, no code fences.
+        1. DATA SOURCE — Where does information come from? (gmail_search, sheets_read, file_read, http_request)
+        2. EXTRACTION — What data is pulled out? (extract_data, ai_extract)
+        3. TRANSFORMATION — How is data changed? (filter, sort, transform, condition)
+        4. DESTINATION — Where does data go? (sheets_append, gmail_send, slack_post, file_write)
 
-        ## CLOUD ACTION DETECTION (Critical — check this FIRST for every step)
+        Example decomposition of "Process invoices from Gmail to Sheets":
+        step1: gmail_search (data source — find invoice emails)
+        step2: gmail_fetch (data source — open each email)  
+        step3: extract_data (extraction — pull invoice number, amount, vendor)
+        step4: condition (transformation — only process if amount > 0)
+        step5: sheets_append (destination — log to tracker sheet)
 
-        Before classifying any step as a local desktop action (click, type_text, paste, 
-        press_shortcut), check whether the target app/site is Gmail or Google Sheets.
-        If it is, use the corresponding CLOUD action instead. Cloud actions run via API
-        and work even when Mirror is not actively controlling the screen — they are 
-        far more reliable than desktop replay.
+        Example decomposition of "Send daily Slack report":
+        step1: sheets_read (data source — pull data from report sheet)
+        step2: transform (transformation — format data as message)
+        step3: slack_post (destination — post to channel)
 
-        ### Gmail Detection
-        If the activity timeline shows the user in Gmail (gmail.com, or Mail.app with 
-        a Google account) composing and sending an email:
-        - Emit a single `gmail_send` step instead of multiple click/type steps
-        - Extract: to (recipient), subject, body
-        - If recipient/subject/body reference data from earlier steps, use {{variable}} syntax
+        ## DATA FLOW RULES
 
-        If the user searches/filters their Gmail inbox:
-        - Emit a `gmail_search` step
-        - Extract: query (the search query in Gmail search syntax, e.g. "from:stripe subject:invoice")
-        - outputAs: variable name for matching messages the user can reference in later steps
+        When data moves between steps, ALWAYS connect them with outputAs/inputFrom:
+        - Step that PRODUCES data: outputAs="variable_name"
+        - Step that CONSUMES data: inputFrom="variable_name"
 
-        ### Google Sheets Detection
-        If the activity timeline shows the user in a Google Sheet (docs.google.com/spreadsheets) 
-        typing data into cells, especially appending a new row:
-        - Emit a `sheets_append` step instead of click/type steps
-        - Extract: spreadsheetId (from the URL if visible in OCR/browser context), 
-          range (e.g. "Sheet1!A:Z"), and values as an array of strings
-        - If values reference earlier step outputs, use {{variable}} syntax for each cell
+        Example:
+        step1: gmail_search → outputAs="invoice_emails"
+        step2: extract_data → inputFrom="invoice_emails", outputAs="invoice_data"
+        step3: sheets_append → inputFrom="invoice_data"
 
-        If the user reads/copies data FROM a Google Sheet:
-        - Emit a `sheets_read` step
-        - Extract: spreadsheetId, range
-        - outputAs: variable name for the cell data for use in later steps
+        ## TRIGGER SELECTION
 
-        ### executionType field (REQUIRED on EVERY step)
-        Every step must include an "executionType" field:
-        - "cloud" — for gmail_send, gmail_search, sheets_append, sheets_read, web_request
-        - "local" — for click, type_text, paste, press_shortcut, open_application, 
-          copy_clipboard, run_script, screenshot
-        This field is used by the UI to show which steps run via API (reliable, always works)
-        vs which require Mirror running on their Mac (desktop replay).
+        - If the user does this daily/weekly/monthly → schedule trigger with appropriate cron
+        - If it's an ad-hoc task → manual trigger
+        - If it responds to external events → webhook trigger
+        Common cron patterns:
+        - Daily at 9am: "0 9 * * *"
+        - Weekdays at 9am: "0 9 * * 1-5"
+        - Every Monday 9am: "0 9 * * 1"
+        - Every hour: "0 * * * *"
+        - Monthly 1st at 9am: "0 9 1 * *"
 
-        ### Confidence Impact
-        Workflows composed ENTIRELY of "cloud" steps should receive a confidence BONUS 
-        of +0.15 (capped at 1.0), because cloud/API execution is significantly more 
-        reliable than desktop replay. Workflows with a MIX of cloud and local steps 
-        get no bonus or penalty. Workflows that are ENTIRELY local steps should be 
-        penalized -0.1, as these are the least reliable pattern.
+        ## CONFIDENCE SCORING
 
-        Step actions (use these exactly):
-        - open_url: Open a URL in default browser. Fields: url
-        - open_application: Launch a desktop app. Fields: appName
-        - type_text: Type a string. Fields: data (the text), shortcut (optional key combo like "cmd+a")
-        - press_shortcut: Press a keyboard shortcut. Fields: shortcut (e.g., "cmd+c", "cmd+v", "cmd+s")
-        - click: Click at position (last resort, fragile). Fields: selector (x,y coordinates)
-        - wait: Pause execution. Fields: duration (seconds)
-        - copy_clipboard: Copy text to clipboard. Fields: data
-        - paste_text: Paste from clipboard (Cmd+V)
-        - extract_data: Extract data from screen/clipboard. Fields: extractPattern (regex or selector), outputAs (variable name)
-        - web_request: Make an HTTP request. Fields: method, url, headers, body
-        - send_email: Send an email. Fields: recipients, template, data
-        - file_read: Read a file. Fields: path, outputAs
-        - file_write: Write a file. Fields: path, data, template
-        - run_script: Run a shell command. Fields: data (the command)
-        - screenshot: Capture screenshot for verification
-        - condition: Branch based on condition. Fields: condition, data
-        - transform: Transform/resize data between steps. Fields: transform, inputFrom, outputAs
-        - gmail_send: Send email via Gmail API. Fields: to, subject, body, executionType="cloud"
-        - gmail_search: Search Gmail inbox. Fields: query, outputAs, executionType="cloud"
-        - sheets_append: Append row to Google Sheet. Fields: spreadsheetId, range, values, executionType="cloud"
-        - sheets_read: Read range from Google Sheet. Fields: spreadsheetId, range, outputAs, executionType="cloud"
+        Base confidence: 0.70
+        +0.20 if ALL steps are cloud/API (no desktop replay)
+        +0.10 if data flow is fully connected (outputAs/inputFrom on all steps)
+        +0.05 if trigger is clearly identified
+        -0.10 if any step requires desktop interaction
+        -0.15 if workflow has gaps or unclear intent
+        -0.20 if relying on click coordinates
 
-        Trigger types:
-        - "schedule": Runs on cron (e.g., "0 9 * * 1-5" for weekday 9am). Fields: cron
-        - "event": Runs when a condition is met (e.g., "file_added", "email_received"). Fields: event
-        - "manual": Runs only when triggered by user
+        ## ACTION SELECTION PRIORITY
 
-        exportTargets: Array of platforms this workflow could be exported to: ["local", "n8n", "zapier"]
+        Prefer cloud API actions over desktop replay. Use these mappings:
+        - Gmail → gmail_search, gmail_fetch, gmail_send
+        - Google Sheets → sheets_read, sheets_append
+        - Slack → slack_post
+        - Any HTTP API → http_request
+        - Email (non-Gmail) → send_email
+        - File operations → file_read, file_write
+        - Data processing → extract_data, filter, transform, condition
+        - Desktop-only apps → open_application, type_text (LAST RESORT)
 
-        Workflow JSON Schema:
+        ## STEP NAMING
+
+        Each step description should be a clear, action-oriented phrase:
+        - "Search Gmail for recent invoices"
+        - "Extract invoice number, amount, and vendor"
+        - "Append extracted data to Accounts Payable sheet"
+        - NOT "click", "type", "do stuff"
+
+        ## COMPLETE ACTION LIST (use these EXACT values for the 'action' field)
+
+        Cloud API actions:
+        - gmail_search: query, outputAs
+        - gmail_fetch: outputAs  
+        - gmail_send: to, subject, body
+        - sheets_read: spreadsheetId, range, outputAs
+        - sheets_append: spreadsheetId, range, values
+        - slack_post: text
+        - http_request: url, method, headers, body
+        - send_email: to, subject, body
+        - notify_user: description
+        - approval_required: description
+
+        Data processing actions:
+        - extract_data: pattern, inputFrom, outputAs
+        - filter: condition, inputFrom, outputAs
+        - transform: transform, inputFrom, outputAs
+        - condition: condition
+        - wait: duration
+
+        Desktop actions (fallback only):
+        - open_application: appName
+        - type_text: data
+        - click: selector
+        - press_shortcut: shortcut
+        - file_read: path, outputAs
+        - file_write: path, data
+        - run_script: data
+        - screenshot: path
+
+        ## OUTPUT FORMAT
+
+        Output ONLY valid JSON matching this EXACT schema. No markdown, no explanation:
         {
-          "name": "string (concise, verb-based, e.g., 'Send Daily Sales Report')",
-          "trigger": {
-            "type": "schedule|event|manual",
-            "cron": "5-field cron string or null",
-            "description": "Human-readable schedule description",
-            "event": "event type or null"
-          },
-          "steps": [
-            {
-              "id": "step1",
-              "action": "action_type from list above",
-              "description": "Plain English description",
-              "enabled": true,
-              "requiresReview": false,
-              "url": "string|null",
-              "selector": "string|null",
-              "output": "string|null",
-              "file": "string|null",
-              "data": "string|null",
-              "template": "string|null",
-              "recipients": "string|null",
-              "appName": "string|null",
-              "inputFrom": "step_id|null (which step's output to use as input)",
-              "outputAs": "string|null (variable name for this step's output)",
-              "condition": "string|null",
-              "method": "GET|POST|PUT|DELETE|null",
-              "headers": {"key": "value"}|null,
-              "body": "string|null",
-              "path": "string|null",
-              "encoding": "utf8|base64|null",
-              "extractPattern": "regex or CSS selector|null",
-              "transform": "jq expression or template|null",
-              "duration": seconds|null,
-              "shortcut": "cmd+s style shortcut|null",
-              "to": "string or {{variable}}|null",
-              "subject": "string or {{variable}}|null",
-              "query": "Gmail search syntax|null",
-              "spreadsheetId": "string or {{variable}}|null",
-              "range": "e.g. Sheet1!A:Z|null",
-              "values": ["string or {{variable}}", "..."]|null,
-              "executionType": "cloud|local"
-            }
-          ],
+          "name": "Concise verb-based workflow name",
+          "trigger": {"type": "schedule|manual", "cron": "cron or null", "description": "human readable", "event": null},
+          "steps": [{
+            "id": "step1", "action": "action_type", "description": "plain English",
+            "enabled": true, "requiresReview": false, "executionType": "cloud|local",
+            "inputFrom": null, "outputAs": null,
+            "query": null, "to": null, "subject": null, "body": null,
+            "spreadsheetId": null, "range": null, "values": null,
+            "url": null, "method": null, "data": null, "pattern": null,
+            "condition": null, "duration": null, "appName": null
+          }],
           "confidence": 0.0-1.0,
-          "requiresReview": ["step_id: reason"],
-          "scheduleRecommendation": "human-readable suggestion|null",
-          "exportTargets": ["local", "n8n", "zapier"]
+          "requiresReview": [],
+          "scheduleRecommendation": null
         }
+
+        EVERY step MUST have: id, action, description, enabled, requiresReview, executionType.
+        Steps with data flow MUST have: inputFrom and/or outputAs.
+        Steps requiring API credentials should have requiresReview: true.
         """
+
 
     // MARK: - User Prompt Builder
 
