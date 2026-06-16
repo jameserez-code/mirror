@@ -367,7 +367,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         case "settings.ready":
             sendSettingsSync(to: targetWebView)
-            handlePermissionsCheck(webView: targetWebView)
+            handlePermissionsCheck(webView: settingsWebView ?? targetWebView)
 
         case "settings.save":
             if let settings = body["settings"] as? [String: Any] {
@@ -404,7 +404,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
             }
 
         case "permissions.check":
-            handlePermissionsCheck(webView: targetWebView)
+            handlePermissionsCheck(webView: targetWebView ?? settingsWebView ?? webView)
 
         case "permissions.openAccessibility":
             permissionsManager.openAccessibilitySettings()
