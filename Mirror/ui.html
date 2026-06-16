@@ -496,6 +496,14 @@ function renderEdges(){
     path.setAttribute('class','edge');path.setAttribute('id',e.id);path.setAttribute('marker-end','url(#arrow)');
     path.addEventListener('click',function(){selectEdge(e.id)});
     edgesSVG.appendChild(path);
+    // Variable label on edge
+    if(f.outputAs){
+      var label=document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('x',(x1+x2)/2);label.setAttribute('y',(y1+y2)/2-8);
+      label.setAttribute('text-anchor','middle');label.setAttribute('fill','#94a3b8');label.setAttribute('font-size','9');
+      label.textContent='{{'+f.outputAs+'}}';
+      edgesSVG.appendChild(label);
+    }
   });
 }
 
@@ -567,13 +575,24 @@ function renderProps(id){
   var b=document.getElementById('props-body');
   var catOpts=Object.keys(edNodeTypes).map(function(c){return'<option value="'+c+'"'+(n.category===c?' selected':'')+'>'+c.replace(/([A-Z])/g,' $1').replace(/^./,function(s){return s.toUpperCase()})+'</option>'}).join('');
   var isCustom=n.category==='custom'||n.type==='custom_node';
-  // Action-specific parameters
+  // Get available variables from upstream nodes (nodes connected via edges to this one)
+  var upstreamVars=[];
+  editEdges.forEach(function(e){if(e.to===id){var src=editNodes.find(function(x){return x.id===e.from});if(src&&src.outputAs)upstreamVars.push(src.outputAs)}});
+  var hasVars=upstreamVars.length>0;
+  // Action-specific parameters with variable dropdowns
   var ctxFields='';
   var ctx=actionParams(n.type);
-  ctx.forEach(function(p){ctxFields+='<div class="p-row"><label>'+p.label+'</label><input id="prop-'+p.key+'" value="'+(n[p.key]||'')+'" placeholder="'+p.placeholder+'" oninput="updateNodeAttr(\''+id+'\',\''+p.key+'\',this.value)"></div>'});
+  ctx.forEach(function(p){
+    var curVal=n[p.key]||'';
+    ctxFields+='<div class="p-row"><label>'+p.label+'</label><div style="display:flex;gap:4px">'+
+      '<input id="prop-'+p.key+'" value="'+curVal+'" placeholder="'+p.placeholder+'" oninput="updateNodeAttr(\''+id+'\',\''+p.key+'\',this.value)" style="flex:1">'+
+      (hasVars?'<select style="width:36px;background:#171717;border:1px solid #404040;border-radius:6px;color:var(--t2);font-size:10px;cursor:pointer" onchange="var v=this.value;if(v){document.getElementById(\'prop-'+p.key+'\').value=v;updateNodeAttr(\''+id+'\',\''+p.key+'\',v);this.value=\'\'}"><option value="">▼</option>'+upstreamVars.map(function(v){return'<option value="{{'+v+'}}">{{'+v+'}}</option>'}).join('')+'</select>':'')+
+    '</div></div>';
+  });
   b.innerHTML='<div class="p-row"><label>Name</label><input id="prop-name" value="'+n.label+'"></div>'+
     (!isCustom?('<div class="p-row"><label>Action Type</label><select id="prop-type" onchange="changeNodeType(\''+id+'\',this.value)">'+Object.keys(edNodeTypes).map(function(c){return edNodeTypes[c].items.map(function(x){return'<option value="'+x.t+'"'+(n.type===x.t?' selected':'')+'>'+x.l+'</option>'}).join('')}).join('')+'</select></div>'):'')+
     ctxFields+
+    '<div class="p-row"><label>Output As (variable name)</label><input id="prop-outputas" value="'+(n.outputAs||'')+'" placeholder="e.g. extracted_email, invoice_data" oninput="updateNodeAttr(\''+id+'\',\'outputAs\',this.value);renderEdges()"></div>'+
     '<div class="p-row"><label>Icon</label><input id="prop-icon" value="'+(n.icon||'⬡')+'" maxlength="2"></div>'+
     (isCustom?'<div class="p-row"><label>Action Type (custom)</label><input id="prop-custom-type" value="'+n.type+'" placeholder="e.g. my_custom_action"></div>':'')+
     '<div class="p-row"><label>Category</label><select id="prop-category">'+catOpts+'</select></div>'+
