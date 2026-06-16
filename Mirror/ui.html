@@ -677,7 +677,10 @@ function executeWorkflow(){
     var n=nodes[i];nodeRunStates[n.id]='running';renderAll();
     document.getElementById('hdr-status').textContent='Step '+(i+1)+'/'+nodes.length;
     log('▶','Running: '+n.label,'#60a5fa');
-    bridge('editor.executeNode',{nodeId:n.id,action:n.type,label:n.label,provider:n.provider||null,description:n.subtitle||''});
+    bridge('editor.executeNode',{nodeId:n.id,action:n.type,label:n.label,provider:n.provider||null,description:n.subtitle||'',
+      to:n.to||'',subject:n.subject||'',body:n.body||'',query:n.query||'',spreadsheetId:n.spreadsheetId||'',range:n.range||'',
+      values:n.values||'',command:n.command||'',url:n.url||'',method:n.method||'',channel:n.channel||'',text:n.text||'',
+      pattern:n.pattern||'',data:n.data||'',condition:n.condition||'',duration:n.duration||'',app:n.app||'',path:n.path||''});
     var started=Date.now(),timeout=setTimeout(function(){
       nodeRunStates[n.id]='failure';renderAll();
       var e='Timeout after 30s — the step may be waiting for an external API or hung. Check your network connection.';
