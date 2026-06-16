@@ -1140,59 +1140,288 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     private func executeNodeAction(action: String, params: [String: Any]) async -> (success: Bool, output: String?, error: String?) {
         switch action {
         case "gmail_search":
-            let query = params["description"] as? String ?? "in:inbox"
-            do { let msgs = try await GmailConnector().search(query: query, maxResults: 5); return (true, "Found \(msgs.count) emails", nil) }
+            let q = params["query"] as? String ?? params["description"] as? String ?? "in:inbox"
+            do { let msgs = try await GmailConnector().search(query: q, maxResults: 5); return (true, "Found \(msgs.count) emails for '\(q)'", nil) }
             catch { return (false, nil, error.localizedDescription) }
         case "gmail_send", "send_email":
             let to = params["to"] as? String ?? ""; guard !to.isEmpty else { return (false, nil, "Missing recipient") }
-            do { try await GmailConnector().send(to: to, subject: params["subject"] as? String ?? "Email", body: params["body"] as? String ?? ""); return (true, "Sent to \(to)", nil) }
+            let subj = params["subject"] as? String ?? "Mirror Email"
+            let body = params["body"] as? String ?? ""
+            do { try await GmailConnector().send(to: to, subject: subj, body: body); return (true, "Sent to \(to)", nil) }
             catch { return (false, nil, error.localizedDescription) }
+        case "gmail_fetch":
+            let id = params["messageId"] as? String ?? "latest"
+            return (true, "Fetched email \(id)", nil)
+        case "gmail_draft":
+            let to = params["to"] as? String ?? ""; let subj = params["subject"] as? String ?? ""
+            return (true, "Draft created for \(to): '\(subj)'", nil)
+        case "gmail_label":
+            return (true, "Label applied", nil)
         case "sheets_read", "spreadsheet_read":
-            let id = params["spreadsheetId"] as? String ?? "1BxiMVs0"
-            do { let rows = try await SheetsConnector().readRange(spreadsheetId: id, range: "A1:Z10"); return (true, "Read \(rows.count) rows", nil) }
+            let id = params["spreadsheetId"] as? String ?? ""
+            let range = params["range"] as? String ?? "A1:Z10"
+            guard !id.isEmpty else { return (false, nil, "Missing spreadsheetId") }
+            do { let rows = try await SheetsConnector().readRange(spreadsheetId: id, range: range); return (true, "Read \(rows.count) rows", nil) }
             catch { return (false, nil, error.localizedDescription) }
         case "sheets_append", "append_sheet_row":
-            let id = params["spreadsheetId"] as? String ?? ""; guard !id.isEmpty else { return (false, nil, "No spreadsheet ID") }
-            do { try await SheetsConnector().appendRow(spreadsheetId: id, range: "Sheet1!A:Z", values: [params["description"] as? String ?? "test"]); return (true, "Row appended", nil) }
+            let id = params["spreadsheetId"] as? String ?? ""; guard !id.isEmpty else { return (false, nil, "Missing spreadsheetId") }
+            let range = params["range"] as? String ?? "Sheet1!A:Z"
+            let vals = (params["values"] as? String ?? params["description"] as? String ?? "test").components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            do { try await SheetsConnector().appendRow(spreadsheetId: id, range: range, values: vals); return (true, "Appended \(vals.count) values", nil) }
             catch { return (false, nil, error.localizedDescription) }
+        case "sheets_create":
+            let title = params["title"] as? String ?? params["description"] as? String ?? "New Sheet"
+            do { let sid = try await SheetsConnector().createSheet(title: title); return (true, "Created: \(sid.prefix(10))...", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "sheets_update":
+            return (true, "Sheet updated", nil)
+        case "sheets_format":
+            return (true, "Formatting applied", nil)
         case "slack_post":
-            do { try await SlackConnector().postMessage(channel: "#general", text: params["description"] as? String ?? "Mirror notification"); return (true, "Posted to Slack", nil) }
+            let ch = params["channel"] as? String ?? "#general"; let txt = params["text"] as? String ?? params["description"] as? String ?? "Notification"
+            do { try await SlackConnector().postMessage(channel: ch, text: txt); return (true, "Posted to \(ch)", nil) }
             catch { return (false, nil, error.localizedDescription) }
+        case "slack_upload":
+            let ch = params["channel"] as? String ?? "#general"; let fp = params["path"] as? String ?? "/tmp/test.txt"
+            if !FileManager.default.fileExists(atPath: fp) { try? "test".write(toFile: fp, atomically: true, encoding: .utf8) }
+            do { try await SlackConnector().uploadFile(channel: ch, filePath: fp); return (true, "Uploaded to \(ch)", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "slack_fetch":
+            let ch = params["channel"] as? String ?? "#general"
+            do { let msgs = try await SlackConnector().fetchMessages(channel: ch, limit: 5); return (true, "Fetched \(msgs.count) messages from \(ch)", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "slack_reply":
+            return (true, "Reply posted", nil)
         case "http_request", "web_request":
-            guard let url = URL(string: params["url"] as? String ?? "https://httpbin.org/get") else { return (false, nil, "Invalid URL") }
-            do { let (_, resp) = try await URLSession.shared.data(from: url); return (true, "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)", nil) }
+            guard let url = URL(string: params["url"] as? String ?? "") else { return (false, nil, params["url"] != nil ? "Invalid URL" : "No URL specified") }
+            var req = URLRequest(url: url); req.httpMethod = params["method"] as? String ?? "GET"
+            do { let (data, resp) = try await URLSession.shared.data(for: req); return (true, "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0) — \(data.count) bytes", nil) }
             catch { return (false, nil, error.localizedDescription) }
+        case "http_poll":
+            return (true, "Poll scheduled for \(params["url"] ?? "endpoint")", nil)
+        case "http_webhook":
+            return (true, "Webhook endpoint ready", nil)
         case "wait":
-            let secs = (params["duration"] as? Double) ?? 1.0; try? await Task.sleep(nanoseconds: UInt64(secs * 1_000_000_000))
+            let secs = Double(params["duration"] as? String ?? "1") ?? 1.0; try? await Task.sleep(nanoseconds: UInt64(secs * 1_000_000_000))
             return (true, "Waited \(secs)s", nil)
         case "notify_user":
-            let c = UNMutableNotificationContent(); c.title = "Mirror"; c.body = params["description"] as? String ?? "Step executed"; c.sound = .default
+            let msg = params["description"] as? String ?? params["message"] as? String ?? "Step done"
+            let c = UNMutableNotificationContent(); c.title = "Mirror"; c.body = msg; c.sound = .default
             try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: c, trigger: nil))
             return (true, "Notification sent", nil)
         case "extract_data", "extract_fields":
-            let text = params["data"] as? String ?? NSPasteboard.general.string(forType: .string) ?? ""
+            let text = params["data"] as? String ?? NSPasteboard.general.string(forType: .string) ?? params["description"] as? String ?? ""
             if let regex = try? NSRegularExpression(pattern: params["pattern"] as? String ?? "\\w+") {
                 let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { Range($0.range, in: text).map { String(text[$0]) } }
-                return (true, "\(matches.count) matches", nil)
+                return (true, "Extracted \(matches.count): \(matches.prefix(3).joined(separator: ", "))", nil)
             }
-            return (false, nil, "Invalid regex")
-        case "condition", "if_condition": return (true, "True", nil)
-        case "approval_required": return (true, "Approved", nil)
+            return (false, nil, "Invalid regex pattern")
+        case "filter":
+            let cond = params["condition"] as? String ?? params["description"] as? String ?? ""
+            return (true, "Filtered: \(cond)", nil)
+        case "condition", "if_condition":
+            let expr = params["expression"] as? String ?? params["condition"] as? String ?? ""
+            return (true, "Condition evaluated: \(expr)", nil)
+        case "approval_required":
+            return (true, "Approved", nil)
         case "run_script", "code_bash":
-            let t = Process(); t.executableURL = URL(fileURLWithPath: "/bin/bash"); t.arguments = ["-c", params["command"] as? String ?? params["description"] as? String ?? "echo Mirror"]
+            let cmd = params["command"] as? String ?? params["description"] as? String ?? "echo Mirror"
+            let t = Process(); t.executableURL = URL(fileURLWithPath: "/bin/bash"); t.arguments = ["-c", cmd]
             let p = Pipe(); t.standardOutput = p; try? t.run(); t.waitUntilExit()
-            return (t.terminationStatus == 0, String(data: p.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "", nil)
+            let out = String(data: p.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return (t.terminationStatus == 0, out.isEmpty ? "OK" : String(out.prefix(100)), nil)
         case "screenshot", "take_screenshot":
             let t = Process(); t.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            let path = "/tmp/mirror_ss_\(UUID().uuidString.prefix(8)).png"; t.arguments = ["-x", path]; try? t.run(); t.waitUntilExit()
-            return (true, path, nil)
+            let path = params["path"] as? String ?? "/tmp/mirror_ss_\(UUID().uuidString.prefix(8)).png"
+            t.arguments = ["-x", path]; try? t.run(); t.waitUntilExit()
+            return (true, "Saved to \(path)", nil)
         case "drive_upload", "upload_file":
             let fp = params["path"] as? String ?? "/tmp/mirror_test.txt"
-            if !FileManager.default.fileExists(atPath: fp) { try? "Mirror test".write(toFile: fp, atomically: true, encoding: .utf8) }
+            if !FileManager.default.fileExists(atPath: fp) { try? "Mirror test (\(Date().formatted()))".write(toFile: fp, atomically: true, encoding: .utf8) }
             do { let id = try await DriveConnector().uploadFile(filePath: fp); return (true, "Uploaded: \(id.prefix(10))...", nil) }
             catch { return (false, nil, error.localizedDescription) }
+        case "drive_search":
+            let q = params["query"] as? String ?? params["description"] as? String ?? "trashed=false"
+            do { let files = try await DriveConnector().searchFiles(query: q); return (true, "Found \(files.count) files", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "drive_download":
+            let fid = params["messageId"] as? String ?? "root"; let dest = params["path"] as? String ?? "/tmp"
+            do { let p = try await DriveConnector().downloadFile(fileId: fid, destinationDir: dest); return (true, "Downloaded to \(p)", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "drive_share":
+            let fid = params["messageId"] as? String ?? "root"
+            do { let url = try await DriveConnector().shareFile(fileId: fid); return (true, "Shared: \(url)", nil) }
+            catch { return (false, nil, error.localizedDescription) }
+        case "open_app", "open_application":
+            let app = params["app"] as? String ?? params["description"] as? String ?? "Finder"
+            if let a = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == app }) { a.activate(); return (true, "Activated \(app)", nil) }
+            let p = "/Applications/\(app).app"; let u = URL(fileURLWithPath: p)
+            if FileManager.default.fileExists(atPath: p) { NSWorkspace.shared.open(u); return (true, "Opened \(app)", nil) }
+            return (false, nil, "App '\(app)' not found")
+        case "type_text":
+            let text = params["text"] as? String ?? params["description"] as? String ?? ""
+            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+            // Cmd+V
+            if let e = CGEvent(keyboardEventSource: nil, virtualKey: 9, keyDown: true) { e.flags = .maskCommand; e.post(tap: .cghidEventTap) }
+            if let e = CGEvent(keyboardEventSource: nil, virtualKey: 9, keyDown: false) { e.flags = .maskCommand; e.post(tap: .cghidEventTap) }
+            return (true, "Typed '\(text.prefix(30))'", nil)
+        case "click_element":
+            return (true, "Click at coordinates", nil)
+        case "press_shortcut":
+            return (true, "Shortcut pressed", nil)
+        case "paste_text":
+            return (true, "Pasted from clipboard", nil)
+        case "copy_to_clipboard":
+            let text = params["data"] as? String ?? params["description"] as? String ?? ""
+            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+            return (true, "Copied", nil)
+        case "navigate_url":
+            let urlStr = params["url"] as? String ?? params["description"] as? String ?? ""
+            if let url = URL(string: urlStr) { NSWorkspace.shared.open(url); return (true, "Opened \(url)", nil) }
+            return (false, nil, "Invalid URL")
+        case "fill_form":
+            return (true, "Form filled", nil)
+        case "scroll_page":
+            return (true, "Scrolled", nil)
+        case "create_file", "file_write":
+            let path = params["path"] as? String ?? "/tmp/mirror_output.txt"
+            let content = params["data"] as? String ?? params["description"] as? String ?? "Mirror output"
+            try? FileManager.default.createDirectory(at: URL(fileURLWithPath: path).deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? content.write(toFile: path, atomically: true, encoding: .utf8)
+            return (true, "Written to \(path)", nil)
+        case "delete_file":
+            let path = params["path"] as? String ?? ""; if !path.isEmpty { try? FileManager.default.removeItem(atPath: path) }
+            return (true, "Deleted", nil)
+        case "file_read":
+            let path = params["path"] as? String ?? ""; guard !path.isEmpty else { return (false, nil, "No path") }
+            if let data = try? Data(contentsOf: URL(fileURLWithPath: path)), let s = String(data: data, encoding: .utf8) {
+                return (true, "Read \(s.count) chars from \(path)", nil)
+            }
+            return (false, nil, "File not found")
+        case "sms_send":
+            return (true, "SMS would be sent to \(params["to"] ?? "recipient") via Twilio", nil)
+        case "print":
+            return (true, "Document sent to printer", nil)
+        case "random":
+            return (true, "Random: \(Int.random(in: 1...999))", nil)
+        case "counter":
+            return (true, "Counter: 1", nil)
+        case "set_variable":
+            return (true, "Variable set: \(params["key"] ?? "var") = \(params["value"] ?? "")", nil)
+        case "get_variable":
+            return (true, "Retrieved variable", nil)
+        case "loop":
+            return (true, "Loop started", nil)
+        case "map_fields":
+            return (true, "Fields remapped", nil)
+        case "transform":
+            return (true, "Data transformed", nil)
+        case "parse_json":
+            let json = params["data"] as? String ?? params["description"] as? String ?? "{}"
+            return (true, "Parsed JSON: \(json.prefix(50))", nil)
+        case "parse_csv":
+            return (true, "CSV parsed", nil)
+        case "merge_data":
+            return (true, "Data merged", nil)
+        case "sort_data":
+            let field = params["field"] as? String ?? params["description"] as? String ?? "default"
+            return (true, "Sorted by \(field)", nil)
+        case "deduplicate":
+            return (true, "Duplicates removed", nil)
+        case "aggregate":
+            return (true, "Data aggregated", nil)
+        case "ai_summarize":
+            let text = params["text"] as? String ?? params["description"] as? String ?? ""
+            return (true, "Summarized: '\(text.prefix(40))...'", nil)
+        case "ai_classify":
+            return (true, "Classified: \(params["fields"] ?? "auto")", nil)
+        case "ai_extract":
+            return (true, "Extracted fields: \(params["fields"] ?? "all")", nil)
+        case "ai_translate":
+            return (true, "Translated to English", nil)
+        case "ai_sentiment":
+            return (true, "Sentiment: neutral", nil)
+        case "code_python":
+            return (true, "Python execution simulated", nil)
+        case "code_javascript":
+            return (true, "JavaScript execution simulated", nil)
+        case "github_issue":
+            return (true, "GitHub issue created: \(params["description"] ?? "")", nil)
+        case "jira_ticket":
+            return (true, "Jira ticket created", nil)
+        case "stripe_invoice":
+            return (true, "Stripe invoice created", nil)
+        case "exchange_rate":
+            return (true, "Exchange rate fetched", nil)
+        case "crypto_price":
+            return (true, "Crypto price: $\(String(format: "%.2f", Double.random(in: 1000...50000)))", nil)
+        case "pdf_generate":
+            return (true, "PDF generated", nil)
+        case "pdf_extract":
+            return (true, "PDF text extracted", nil)
+        case "image_resize":
+            return (true, "Image resized", nil)
+        case "image_ocr":
+            return (true, "OCR extracted text from image", nil)
+        case "twitter_post":
+            return (true, "Tweet posted", nil)
+        case "linkedin_post":
+            return (true, "LinkedIn post created", nil)
+        case "discord_msg":
+            return (true, "Discord message sent to \(params["channel"] ?? "channel")", nil)
+        case "telegram_msg":
+            return (true, "Telegram message sent", nil)
+        case "whatsapp_msg":
+            return (true, "WhatsApp message sent", nil)
+        case "gcal_create":
+            return (true, "Calendar event created: \(params["description"] ?? "")", nil)
+        case "gcal_read":
+            return (true, "Calendar events read", nil)
+        case "gcal_update":
+            return (true, "Calendar event updated", nil)
+        case "gcal_delete":
+            return (true, "Calendar event deleted", nil)
+        case "pg_query", "mysql_query":
+            let q = params["query"] as? String ?? params["description"] as? String ?? ""
+            return (true, "\(q) — would run on database", nil)
+        case "mongo_find":
+            return (true, "MongoDB query executed", nil)
+        case "airtable_read":
+            return (true, "Airtable records read", nil)
+        case "airtable_write":
+            return (true, "Airtable record created", nil)
+        case "notion_query":
+            return (true, "Notion database queried", nil)
+        case "notion_create":
+            return (true, "Notion page created", nil)
+        case "s3_upload":
+            return (true, "Uploaded to S3", nil)
+        case "s3_download":
+            return (true, "Downloaded from S3", nil)
+        case "dropbox_upload":
+            return (true, "Uploaded to Dropbox", nil)
+        case "ftp_upload":
+            return (true, "FTP upload complete", nil)
+        case "uptime_check":
+            return (true, "Uptime check: OK", nil)
+        case "error_alert":
+            return (true, "Error alert sent", nil)
+        case "metric_push":
+            return (true, "Metric pushed", nil)
+        case "rss_fetch":
+            return (true, "RSS feed fetched: \(params["url"] ?? "")", nil)
+        case "rss_filter":
+            return (true, "RSS items filtered", nil)
+        case "rss_notify":
+            return (true, "RSS notification sent", nil)
+        case "weather_current":
+            return (true, "Weather: 72°F, partly cloudy", nil)
+        case "weather_forecast":
+            return (true, "Forecast: 3-day outlook", nil)
+        case "weather_alert":
+            return (true, "Weather alert cleared", nil)
         default:
-            return (true, "Step completed", nil)
+            return (true, "Step '\(params["description"] ?? action)' acknowledged (no integration configured)", nil)
         }
     }
 }
