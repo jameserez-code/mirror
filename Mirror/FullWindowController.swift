@@ -469,6 +469,22 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
                 performAnalysis(extraContext: context)
             }
 
+        case "texttoworkflow.generate":
+            if let description = body["description"] as? String {
+                let targetWV = targetWebView ?? webView!
+                Task {
+                    let result = await textToWorkflowAnalysis(description: description)
+                    await MainActor.run {
+                        if let json = result {
+                            callJS(on: targetWV, "window.mirror.showReviewState", jsonArg: json)
+                        } else {
+                            callJS(on: targetWV, "window.mirror.showError", args: ["Failed to generate workflow. Check your API key."])
+                            callJS(on: targetWV, "window.mirror.showIdleState")
+                        }
+                    }
+                }
+            }
+
         case "clipboard.read":
             let targetField = body["targetField"] as? String ?? ""
             let targetWV = targetWebView ?? webView!
@@ -939,6 +955,54 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         if item.action == #selector(NSText.cut(_:)) { return true }
         if item.action == #selector(NSText.selectAll(_:)) { return true }
         return true
+    }
+
+    // MARK: - Text to Workflow
+
+    private func textToWorkflowAnalysis(description: String) async -> String? {
+        guard let apiKey = CredentialStore.shared.getAPIKey(provider: "openrouter") else { return nil }
+
+        let model = Settings.openRouterModel
+        var request = URLRequest(url: URL(string: "https://openrouter.ai/api/v1/chat/completions")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://mirror.app", forHTTPHeaderField: "HTTP-Referer")
+        request.setValue("Mirror", forHTTPHeaderField: "X-Title")
+
+        let prompt = """
+        You are a workflow automation engine. Given a user's natural language description, generate a structured workflow JSON.
+
+        \(AnalysisPipeline.systemPrompt)
+
+        User description: "\(description)"
+
+        Generate a complete workflow JSON based on this description. Include appropriate steps, triggers, and data flow. Output ONLY the JSON, no other text.
+        """
+
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 4096,
+            "messages": [["role": "user", "content": prompt]]
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let first = choices.first,
+              let message = first["message"] as? [String: Any],
+              let text = message["content"] as? String else { return nil }
+
+        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("```") {
+            let lines = cleaned.components(separatedBy: "\n")
+            cleaned = lines.dropFirst().dropLast().joined(separator: "\n")
+        }
+        if cleaned.hasPrefix("json") { cleaned = String(cleaned.dropFirst(4)) }
+        cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return cleaned
     }
 
     // MARK: - Cron Helper

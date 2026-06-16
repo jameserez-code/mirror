@@ -127,6 +127,22 @@ html,body{height:100%;overflow:hidden;font-family:'Inter',-apple-system,BlinkMac
       <h1 style="font-size:28px;font-weight:700;letter-spacing:-0.5px">Record once.<br>Automate forever.</h1>
       <p style="color:var(--t2);font-size:14px;text-align:center;max-width:400px">Show Mirror how you do something. It learns the workflow and runs it automatically.</p>
       <button class="btn btn-primary" style="padding:14px 32px;font-size:15px" onclick="startRecording()">● Start Recording</button>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="color:var(--t3);font-size:12px">or</span>
+        <button class="btn btn-secondary" style="padding:12px 24px;font-size:14px" onclick="showTextToWorkflow()">📝 Text to Workflow</button>
+      </div>
+      <div id="text-to-wf" style="display:none;flex-direction:column;gap:12px;width:100%;max-width:500px;margin-top:12px">
+        <textarea id="ttw-input" style="width:100%;background:#171717;border:1px solid #404040;border-radius:10px;padding:14px;color:var(--text);font-size:13px;outline:none;font-family:inherit;resize:vertical;min-height:120px;line-height:1.5" placeholder="Describe the workflow you want to automate...
+
+Examples:
+'Every morning, search Gmail for invoices, extract the amount and vendor, and append them to my Accounts Payable Google Sheet'
+'Find new LinkedIn connections, copy their name and company, add them to my Leads spreadsheet'
+'Send a daily Slack summary of all unread emails from my boss'"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="submitTextToWorkflow()" style="flex:1;padding:10px;font-size:13px">Generate Workflow</button>
+          <button class="btn btn-secondary" onclick="hideTextToWorkflow()" style="padding:10px 16px">Cancel</button>
+        </div>
+      </div>
       <div style="width:100%;max-width:480px;margin-top:20px" id="wf-list-container">
         <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Your Automations</div>
         <div id="wf-list"></div>
@@ -329,6 +345,15 @@ function submitContext(){
   document.getElementById('ctx-input-row').remove();
   document.getElementById('an-status').textContent='Re-analyzing with your context...';
   document.getElementById('an-bar').style.width='50%';
+}
+
+function showTextToWorkflow(){document.getElementById('text-to-wf').style.display='flex';document.getElementById('ttw-input').focus()}
+function hideTextToWorkflow(){document.getElementById('text-to-wf').style.display='none';document.getElementById('ttw-input').value=''}
+
+function submitTextToWorkflow(){
+  var t=document.getElementById('ttw-input').value.trim();if(!t){toast('Describe your workflow first','error');return}
+  showView('analyzing');document.getElementById('an-status').textContent='Generating workflow from your description...';document.getElementById('an-bar').style.width='10%';
+  bridge('texttoworkflow.generate',{description:t});
 }
 
 // ═══════ RECORDING ═══════
