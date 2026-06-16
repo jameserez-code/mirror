@@ -472,10 +472,26 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
         case "texttoworkflow.generate":
             if let description = body["description"] as? String {
                 let targetWV = targetWebView ?? webView!
+                // Create a virtual session for the generated workflow
+                let sessionId = UUID().uuidString
+                currentSessionId = sessionId
+                let baseDir = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent("Mirror/Sessions/\(sessionId)")
+                try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+                // Save empty events + metadata so deploy can find the session
+                try? "[]".write(to: baseDir.appendingPathComponent("events.json"), atomically: true, encoding: .utf8)
+                let meta: [String: Any] = ["name": "Text to Workflow", "description": description, "source": "text"]
+                if let metaData = try? JSONSerialization.data(withJSONObject: meta) {
+                    try? metaData.write(to: baseDir.appendingPathComponent("metadata.json"))
+                }
                 Task {
                     let result = await textToWorkflowAnalysis(description: description)
                     await MainActor.run {
                         if let json = result {
+                            // Save workflow JSON to disk for deploy
+                            if let jsonData = json.data(using: .utf8) {
+                                try? jsonData.write(to: baseDir.appendingPathComponent("workflow.json"))
+                            }
                             callJS(on: targetWV, "window.mirror.showReviewState", jsonArg: json)
                         } else {
                             callJS(on: targetWV, "window.mirror.showError", args: ["Failed to generate workflow. Check your API key."])
