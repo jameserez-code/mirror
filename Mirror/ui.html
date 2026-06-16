@@ -567,13 +567,17 @@ function renderProps(id){
   var b=document.getElementById('props-body');
   var catOpts=Object.keys(edNodeTypes).map(function(c){return'<option value="'+c+'"'+(n.category===c?' selected':'')+'>'+c.replace(/([A-Z])/g,' $1').replace(/^./,function(s){return s.toUpperCase()})+'</option>'}).join('');
   var isCustom=n.category==='custom'||n.type==='custom_node';
+  // Action-specific parameters
+  var ctxFields='';
+  var ctx=actionParams(n.type);
+  ctx.forEach(function(p){ctxFields+='<div class="p-row"><label>'+p.label+'</label><input id="prop-'+p.key+'" value="'+(n[p.key]||'')+'" placeholder="'+p.placeholder+'" oninput="updateNodeAttr(\''+id+'\',\''+p.key+'\',this.value)"></div>'});
   b.innerHTML='<div class="p-row"><label>Name</label><input id="prop-name" value="'+n.label+'"></div>'+
-    (!isCustom?('<div class="p-row"><label>Action Type</label><select id="prop-type">'+Object.keys(edNodeTypes).map(function(c){return edNodeTypes[c].items.map(function(x){return'<option value="'+x.t+'"'+(n.type===x.t?' selected':'')+'>'+x.l+'</option>'}).join('')}).join('')+'</select></div>'):'')+
+    (!isCustom?('<div class="p-row"><label>Action Type</label><select id="prop-type" onchange="changeNodeType(\''+id+'\',this.value)">'+Object.keys(edNodeTypes).map(function(c){return edNodeTypes[c].items.map(function(x){return'<option value="'+x.t+'"'+(n.type===x.t?' selected':'')+'>'+x.l+'</option>'}).join('')}).join('')+'</select></div>'):'')+
+    ctxFields+
     '<div class="p-row"><label>Icon</label><input id="prop-icon" value="'+(n.icon||'⬡')+'" maxlength="2"></div>'+
     (isCustom?'<div class="p-row"><label>Action Type (custom)</label><input id="prop-custom-type" value="'+n.type+'" placeholder="e.g. my_custom_action"></div>':'')+
     '<div class="p-row"><label>Category</label><select id="prop-category">'+catOpts+'</select></div>'+
     '<div class="p-row"><label>Color</label><input type="color" id="prop-color" value="'+(n.color||'#6b7280')+'" style="width:100%;height:32px;padding:2px;cursor:pointer"></div>'+
-    '<div class="p-row"><label>Subtitle / Config</label><input id="prop-subtitle" value="'+(n.subtitle||'')+'" placeholder="e.g. key=value"></div>'+
     '<div class="p-row"><label>Confidence</label><input type="range" min="0" max="100" value="'+(n.confidence*100|0)+'" oninput="updateNodeAttr(\''+id+'\',\'confidence\',this.value/100)"><span style="font-size:10px;color:var(--t3)">'+(n.confidence*100|0)+'%</span></div>'+
     '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1" id="save-props">Save</button><button class="btn btn-red" style="flex:1" id="delete-props">Delete</button></div>';
   document.getElementById('save-props').onclick=function(){
@@ -583,13 +587,47 @@ function renderProps(id){
     n.icon=document.getElementById('prop-icon').value||'⬡';
     n.category=document.getElementById('prop-category').value;
     n.color=document.getElementById('prop-color').value;
-    n.subtitle=document.getElementById('prop-subtitle').value;
     renderAll();toast('Updated '+n.label,'success');
   };
   document.getElementById('delete-props').onclick=function(){editNodes=editNodes.filter(function(x){return x.id!==id});editEdges=editEdges.filter(function(e){return e.from!==id&&e.to!==id});selNodeIds.clear();renderAll();closeProps();toast('Node deleted','success')};
 }
 
-function updateNodeAttr(id,key,val){var n=editNodes.find(function(x){return x.id===id});if(n){n[key]=val;renderAll()}}
+function actionParams(type){
+  var map={
+    gmail_search:[{key:'query',label:'Search Query',placeholder:'in:inbox newer_than:7d'},{key:'maxResults',label:'Max Results',placeholder:'10'}],
+    gmail_send:[{key:'to',label:'Recipient',placeholder:'email@example.com'},{key:'subject',label:'Subject',placeholder:'Invoice attached'},{key:'body',label:'Body',placeholder:'Email body text'}],
+    send_email:[{key:'to',label:'Recipient',placeholder:'email@example.com'},{key:'subject',label:'Subject',placeholder:'Subject line'}],
+    sheets_read:[{key:'spreadsheetId',label:'Spreadsheet ID',placeholder:'1BxiMVs0...'},{key:'range',label:'Range',placeholder:'Sheet1!A:Z'}],
+    sheets_append:[{key:'spreadsheetId',label:'Spreadsheet ID',placeholder:'1BxiMVs0...'},{key:'range',label:'Range',placeholder:'Sheet1!A:Z'},{key:'values',label:'Values (comma separated)',placeholder:'{{amount}},{{vendor}}'}],
+    sheets_create:[{key:'title',label:'Sheet Title',placeholder:'New Sheet'}],
+    slack_post:[{key:'channel',label:'Channel',placeholder:'#general'},{key:'text',label:'Message',placeholder:'Notification text'}],
+    http_request:[{key:'url',label:'URL',placeholder:'https://api.example.com'},{key:'method',label:'Method',placeholder:'GET'}],
+    extract_fields:[{key:'pattern',label:'Extract Pattern',placeholder:'regex or field name'},{key:'data',label:'Source Text',placeholder:'Text to extract from'}],
+    filter:[{key:'condition',label:'Filter Condition',placeholder:'{{amount}} > 100'}],
+    condition:[{key:'expression',label:'Expression',placeholder:'{{status}} == "active"'}],
+    wait:[{key:'duration',label:'Duration (seconds)',placeholder:'5'}],
+    run_script:[{key:'command',label:'Command',placeholder:'curl https://api.example.com'}],
+    open_app:[{key:'app',label:'App Name',placeholder:'Safari'}],
+    type_text:[{key:'text',label:'Text to Type',placeholder:'Hello world'}],
+    navigate_url:[{key:'url',label:'URL',placeholder:'https://example.com'}],
+    ai_summarize:[{key:'text',label:'Text',placeholder:'Text to summarize'}],
+    ai_extract:[{key:'fields',label:'Fields to Extract',placeholder:'name, amount, date'}],
+    gmail_fetch:[{key:'messageId',label:'Message ID',placeholder:'{{gmail_results}}'}],
+    notify_user:[{key:'message',label:'Message',placeholder:'Task completed'}],
+    upload_file:[{key:'path',label:'File Path',placeholder:'/path/to/file'}],
+    drive_upload:[{key:'path',label:'File Path',placeholder:'/tmp/file.pdf'}],
+    approval_required:[{key:'description',label:'Approval Description',placeholder:'Review before proceeding'}]
+  };
+  return map[type]||[];
+}
+
+function changeNodeType(id,newType){
+  var labels={schedule_trigger:'Schedule',manual_trigger:'Manual',webhook_trigger:'Webhook',gmail_search:'Gmail Search',gmail_fetch:'Gmail Fetch',gmail_send:'Gmail Send',sheets_read:'Sheets Read',sheets_append:'Sheets Append',slack_post:'Slack Post',http_request:'HTTP Request',extract_fields:'Extract Fields',summarize:'Summarize',classify:'Classify',filter:'Filter',condition:'If Condition',wait:'Wait',notify_user:'Notify',open_app:'Open App',type_text:'Type Text',click_element:'Click',run_script:'Run Script',navigate_url:'Navigate',ai_summarize:'AI Summarize',ai_extract:'AI Extract',drive_upload:'Drive Upload',approval_required:'Approval',sheets_create:'Sheets Create',upload_file:'Upload File',send_email:'Send Email'};
+  var cats={schedule_trigger:'trigger',manual_trigger:'trigger',webhook_trigger:'trigger',gmail_search:'gmail',gmail_fetch:'gmail',gmail_send:'gmail',sheets_read:'sheets',sheets_append:'sheets',sheets_create:'sheets',slack_post:'slack',http_request:'http',extract_fields:'data',filter:'data',condition:'logic',wait:'logic',notify_user:'action',open_app:'desktop',type_text:'desktop',click_element:'desktop',run_script:'action',navigate_url:'desktop',ai_summarize:'ai',ai_extract:'ai',drive_upload:'drive',approval_required:'logic',upload_file:'drive',send_email:'action',adjustSchedule:'trigger'};
+  var icons={schedule_trigger:'⏰',gmail_search:'G',gmail_send:'✉',sheets_append:'📊',slack_post:'#',http_request:'🌐',extract_fields:'✂',condition:'?',wait:'⏱',open_app:'📱',type_text:'⌨',run_script:'⚙',ai_summarize:'📝',approval_required:'✓',drive_upload:'⬆',sheets_read:'S',gmail_fetch:'M',filter:'🔍',notify_user:'🔔',navigate_url:'🔗',click_element:'🖱',upload_file:'⬆',send_email:'✉',sheets_create:'📋',ai_extract:'🔮',classify:'🏷'};
+  editNodes=editNodes.map(function(n){if(n.id===id){n.type=newType;n.label=labels[newType]||newType;n.category=cats[newType]||'action';n.icon=icons[newType]||'⬡';n.color=catColors[n.category]||'#6b7280'}return n});
+  renderAll();setTimeout(function(){renderProps(id)},10);
+}
 
 // ═══════ UNDO ═══════
 var undoStack=[],undoIdx=-1;
