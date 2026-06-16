@@ -322,6 +322,7 @@
       <div class="permission-status">
         <div class="status-dot" id="google-status-dot"></div>
         <button class="btn-permission" id="google-connect-btn" onclick="connectGoogle()">Connect</button>
+        <button class="btn-permission" id="google-cancel-btn" onclick="cancelGoogle()" style="display:none">Cancel</button>
         <button class="btn-permission" id="google-test-btn" onclick="testGoogle()" style="display:none">Test</button>
       </div>
     </div>
@@ -500,12 +501,21 @@ function switchTab(name) {
 function connectGoogle() {
   var btn = document.getElementById('google-connect-btn');
   if (btn) { btn.textContent = 'Connecting...'; btn.disabled = true; }
+  var cancelBtn = document.getElementById('google-cancel-btn');
+  if(cancelBtn) cancelBtn.style.display = '';
   bridge('integrations.connectGoogle');
-  // Safety timeout: revert after 90s if no response
   setTimeout(function(){
     var b=document.getElementById('google-connect-btn');
-    if(b&&b.disabled){b.textContent='Connect';b.disabled=false}
+    if(b&&b.disabled){b.textContent='Connect';b.disabled=false;if(cancelBtn)cancelBtn.style.display='none'}
   },90000);
+}
+
+function cancelGoogle() {
+  bridge('integrations.cancelGoogle');
+  var btn=document.getElementById('google-connect-btn');
+  if(btn){btn.textContent='Connect';btn.disabled=false}
+  var cancelBtn=document.getElementById('google-cancel-btn');
+  if(cancelBtn)cancelBtn.style.display='none';
 }
 
 function disconnectGoogle() {

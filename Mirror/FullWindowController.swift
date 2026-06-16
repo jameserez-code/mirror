@@ -31,6 +31,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
     private var settingsWindow: NSWindow?
     private var editorWebView: MirrorWebView?
     private var editorWindow: NSWindow?
+    private var googleOAuthManager: GoogleOAuthManager?
     private let captureManager = CaptureManager.shared
     private let permissionsManager = PermissionsManager()
     private let historyStore = HistoryStore()
@@ -366,6 +367,7 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         case "settings.ready":
             sendSettingsSync(to: targetWebView)
+            handlePermissionsCheck(webView: targetWebView)
 
         case "settings.save":
             if let settings = body["settings"] as? [String: Any] {
@@ -424,15 +426,27 @@ class FullWindowController: NSWindowController, WKScriptMessageHandler, WKNaviga
 
         case "integrations.connectGoogle":
             let oauthManager = GoogleOAuthManager()
-            oauthManager.startAuthFlow { result in
+            googleOAuthManager = oauthManager
+            oauthManager.startAuthFlow { [weak self] result in
                 DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    let t = self.settingsWebView ?? self.webView!
                     switch result {
                     case .success:
-                        self.callJS(on: self.settingsWebView ?? self.webView!, "window.mirror.updateGoogleStatus", args: [true])
+                        self.callJS(on: t, "window.mirror.updateGoogleStatus", args: [true])
                     case .failure(let error):
-                        self.callJS(on: self.settingsWebView ?? self.webView!, "window.mirror.showError", args: [error.localizedDescription])
+                        self.callJS(on: t, "window.mirror.updateGoogleStatus", args: [false])
+                        self.callJS(on: t, "window.mirror.showError", args: [error.localizedDescription])
                     }
+                    self.googleOAuthManager = nil
                 }
+            }
+
+        case "integrations.cancelGoogle":
+            googleOAuthManager?.cancel()
+            googleOAuthManager = nil
+            if let wv = targetWebView ?? webView {
+                callJS(on: wv, "window.mirror.updateGoogleStatus", args: [false])
             }
 
         case "integrations.disconnectGoogle":

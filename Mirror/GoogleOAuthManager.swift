@@ -221,6 +221,11 @@ class GoogleOAuthManager {
 
     // MARK: - Connection Status
 
+    func cancel() {
+        listener?.stop()
+        listener = nil
+    }
+
     static func isConnected() -> Bool {
         return CredentialStore.shared.get(key: "google_refresh_token") != nil
     }
