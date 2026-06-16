@@ -611,6 +611,8 @@ function renderProps(id){
   document.getElementById('delete-props').onclick=function(){editNodes=editNodes.filter(function(x){return x.id!==id});editEdges=editEdges.filter(function(e){return e.from!==id&&e.to!==id});selNodeIds.clear();renderAll();closeProps();toast('Node deleted','success')};
 }
 
+function updateNodeAttr(id,key,val){var n=editNodes.find(function(x){return x.id===id});if(n){n[key]=val;renderAll()}}
+
 function actionParams(type){
   var map={
     gmail_search:[{key:'query',label:'Search Query',placeholder:'in:inbox newer_than:7d'},{key:'maxResults',label:'Max Results',placeholder:'10'}],
